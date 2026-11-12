@@ -1,0 +1,1777 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniMax H3 工作台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2264%22%20height%3D%2264%22%20viewBox%3D%220%200%20140%20140%22%3E%3Crect%20width%3D%22140%22%20height%3D%22140%22%20rx%3D%2230%22%20fill%3D%22%232b2d30%22/%3E%3Ctext%20x%3D%2270%22%20y%3D%2288%22%20text-anchor%3D%22middle%22%20font-family%3D%22-apple-system%2C%27Segoe%20UI%27%2CHelvetica%2CArial%2Csans-serif%22%20font-size%3D%2264%22%20font-weight%3D%22700%22%20fill%3D%22%23f2f2f2%22%20letter-spacing%3D%22-2%22%3EH3%3C/text%3E%3Crect%20x%3D%2226%22%20y%3D%22106%22%20width%3D%2288%22%20height%3D%229%22%20rx%3D%224.5%22%20fill%3D%22%2348484a%22/%3E%3Crect%20x%3D%2226%22%20y%3D%22106%22%20width%3D%2256%22%20height%3D%229%22%20rx%3D%224.5%22%20fill%3D%22%23ff7a2f%22/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#131416; --side:#1c1e21; --panel:#1c1e21; --card:#28292c; --chip:#2e3033; --chip-h:#37393d; --line:rgba(255,255,255,.07);
+  --tx:#f5f5f6; --tx2:#a1a1a8; --tx3:#6c6c74; --lime:#d1fe17; --lime2:#bfe810; --lime-d:#98b810;
+  --red:#ff5470; --amber:#ffb84d; --green:#8be28f; --pink:#fb64b6; --r:22px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Inter","PingFang SC","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+input,textarea{font:inherit;color:inherit}
+svg{display:block}
+.app{display:grid;grid-template-columns:268px minmax(0,1fr);min-height:100vh}
+
+/* 左侧菜单 */
+.nav{background:var(--side);border-right:1px solid var(--line);padding:12px 12px 16px;position:sticky;top:0;height:100vh;overflow:hidden auto;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:10px;background:#232528;border-radius:14px;font-weight:650;font-size:16px}
+.brand .lg{display:grid;flex:none}
+.brand i{width:30px;height:30px;border-radius:9px;background:var(--lime);display:grid;place-items:center;color:#111;flex:none}
+.ni{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:13px;font-size:16px;color:#e6e6e8;text-align:left;width:100%;position:relative;text-decoration:none}
+.ni:hover{background:#25272a}
+.ni.on{background:#2e3033}
+.ni .t{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.t.gray{background:linear-gradient(160deg,#a6a6ad,#5b5b62)} .t.cyan{background:linear-gradient(160deg,#7fe3f0,#2f93c4)}
+.t.blue{background:linear-gradient(160deg,#6db5ff,#2f62e6)} .t.pink{background:linear-gradient(160deg,#ff9cc8,#e3487f)}
+.t.proj{background:color-mix(in srgb,var(--fc,#e2e8f0) 13%,#232528);color:var(--fc,var(--tx2));box-shadow:none;border:1px solid color-mix(in srgb,var(--fc,#e2e8f0) 22%,transparent)}
+.pjnew{align-items:flex-start;background:#25272a;cursor:default}
+.pjnew .pjn{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;padding-bottom:3px}
+.pjnew input{width:100%;background:#131416;border:1px solid var(--lime-d);border-radius:8px;padding:4px 8px;font-size:14px;outline:none}
+.dots{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pjnew .dots{gap:6px;padding:2px}
+.pjnew .cdot{width:13px;height:13px}
+.cdot{width:16px;height:16px;border-radius:50%;cursor:pointer;flex:none;box-shadow:0 0 0 2px transparent;transition:transform .1s}
+.cdot:hover{transform:scale(1.2)} .cdot.on{box-shadow:0 0 0 2px #1c1e21,0 0 0 4px #fff}
+.ni.pj{gap:6px;font-size:15px;padding-top:6px;padding-bottom:6px}
+.ni.pj .t{width:26px;height:26px}
+.ni.pj .tw{width:16px;height:26px;display:grid;place-items:center;flex:none;color:var(--tx3);border-radius:6px}
+.ni.pj .tw svg{display:block;transition:transform .12s} .ni.pj .tw.open svg{transform:rotate(90deg)}
+.ni.pj .tw.none{visibility:hidden} .ni.pj .tw:hover{color:var(--tx)}
+.ni.pj .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ni.pj .pn small{display:block;font-size:11.5px;color:var(--tx3)}
+.ni.pj.drop{outline:1.5px solid #d6d6da;outline-offset:-1.5px;background:#2e3033}
+.nav .sec.drop{color:var(--tx);outline:1.5px dashed #8a8a92;border-radius:8px}
+.ni .cnt{margin-left:auto;font-size:12px;color:var(--tx3)}
+.ni .more{margin-left:auto;width:26px;height:26px;border-radius:8px;display:none;place-items:center;color:var(--tx2)}
+.ni:hover .more{display:grid}
+.ni:hover .cnt{display:none}
+.ni .more:hover{background:#333538}
+.sec{display:flex;align-items:center;gap:6px;color:var(--tx3);font-size:13.5px;padding:18px 10px 6px}
+.sec .sp{flex:1}
+.sec button{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--tx3)}
+.sec button:hover,.sec button.on{background:#28292c;color:var(--tx)}
+.side-in{margin:2px 4px 6px;background:#25272a;border:1px solid #333538;border-radius:10px;padding:7px 10px;font-size:14px;outline:0;width:calc(100% - 8px)}
+.side-in:focus{border-color:var(--lime-d)}
+.ni.new .t{background:transparent;border:1.5px solid #3d3f43;color:var(--tx2);box-shadow:none}
+.ni.new{color:var(--tx2)}
+.navfoot{margin-top:auto;padding:14px 6px 0;display:flex;flex-direction:column;gap:8px}
+.pill{font-size:12.5px;padding:6px 11px;border-radius:99px;background:var(--chip);color:var(--tx2);display:flex;align-items:center;gap:6px;width:fit-content}
+.pill b{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.pill.warn b{background:var(--amber)} .pill.bad b{background:var(--red)}
+.ghost{font-size:13px;color:var(--tx2);padding:7px 12px;border-radius:10px;background:var(--chip);width:fit-content}
+.ghost:hover{background:var(--chip-h);color:var(--tx)}
+
+.main{min-width:0;padding:26px 28px 80px}
+.inner{max-width:1320px;margin:0 auto}
+.banner{background:#2a1d10;border:1px solid #5a3a12;color:#ffd9a3;border-radius:14px;padding:12px 16px;margin-bottom:18px;font-size:13.5px}
+.banner code{background:rgba(0,0,0,.35);padding:2px 7px;border-radius:6px;font-size:12.5px;user-select:all}
+
+/* 页头 */
+.vh{display:flex;align-items:flex-end;gap:14px;margin:6px 4px 20px;flex-wrap:wrap}
+.vh h1{font-size:30px;margin:0;font-weight:700;letter-spacing:.3px}
+.vh h1 input{font-size:30px;font-weight:700;background:transparent;border:0;border-bottom:2px solid var(--lime-d);outline:0;width:min(520px,80vw);padding:0}
+.vh .sub{color:var(--tx3);font-size:13.5px;padding-bottom:5px}
+.vh .sp{flex:1}
+.vh .acts{display:flex;gap:8px;padding-bottom:3px}
+.wfadd{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) minmax(0,2fr) auto;gap:8px;margin:0 0 8px}
+.wfadd input,.wfrow input{background:#25272a;border:1px solid #333538;border-radius:10px;padding:9px 12px;font-size:14px;outline:0;min-width:0;color:var(--tx)}
+.wfadd input:focus,.wfrow input:focus{border-color:#6c6c74}
+.wfadd .go{background:var(--lime);color:#111;font-weight:650;border-radius:10px;padding:0 16px;font-size:14px}
+.wfrow{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;align-items:center}
+.wfrow.cur{border-color:rgba(255,255,255,.28)}
+.wfrow .nm{font-size:16px;font-weight:650;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wfrow .nm span[data-w=name]{cursor:text}
+.wfrow .tag{font-size:12px;font-weight:500;color:var(--tx2);background:var(--chip);border-radius:6px;padding:1px 8px}
+.wfrow .meta{font-size:12.5px;color:var(--tx3);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.wfrow .meta code{font-size:12.5px;color:var(--tx2);cursor:pointer}
+.wfrow .ok{color:var(--green)} .wfrow .bad{color:var(--amber);grid-column:1/-1;font-size:13px;line-height:1.6}
+.wfrow .acts{display:flex;gap:6px;grid-row:1/3;grid-column:2}
+.wfrow .note{color:var(--tx2);cursor:text}
+@media(max-width:900px){.wfadd{grid-template-columns:1fr}}
+.guide{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 18px;margin-bottom:18px;display:flex;flex-direction:column;gap:10px}
+.guide .gh{display:flex;align-items:center;font-weight:650;font-size:15px}
+.gstep{display:flex;align-items:center;gap:12px}
+.gstep i{font-style:normal;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;font-weight:650;background:var(--chip);color:var(--tx2)}
+.gstep.ok i{background:rgba(139,226,143,.16);color:var(--green)}
+.gstep div{display:flex;flex-direction:column;flex:1;min-width:0}
+.gstep b{font-size:14.5px;font-weight:600} .gstep.ok b{color:var(--tx2)}
+.gstep span{font-size:12.5px;color:var(--tx3)}
+.pstats{display:flex;gap:22px;flex-wrap:wrap;margin:-8px 4px 18px;padding:10px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;width:fit-content;max-width:100%}
+.pstats div{display:flex;flex-direction:column;gap:1px}
+.pstats b{font-size:17px;font-weight:650}
+.pstats span{font-size:12px;color:var(--tx3)}
+.hero{text-align:center;margin:26px 0 30px}
+.hero h1{font-size:40px;margin:0 0 8px;font-weight:750;letter-spacing:1px}
+.hero p{margin:0;color:var(--tx3);font-size:14px}
+
+/* 生成区 */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:12px}
+.top{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr) repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.card{background:var(--card);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:12px;min-width:0;text-align:left;position:relative}
+button.card:hover,.card.click:hover{background:#2e3033}
+.card .ico{width:50px;height:50px;border-radius:13px;flex:none;display:grid;place-items:center;background:#1c1e21;border:1px solid var(--line);color:var(--tx2)}
+.card .ico.lime{color:var(--lime)}
+.card .t{min-width:0;flex:1}
+.card .k{font-size:12.5px;color:var(--tx3)}
+.card .v{font-size:19px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card input.v{background:transparent;border:0;outline:0;width:100%;padding:0}
+.card input.v::placeholder{color:var(--tx3);font-weight:500}
+
+.editor{background:var(--card);border-radius:26px;padding:16px 16px 14px;display:flex;gap:16px}
+.ed-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.media{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.media:empty{display:none}
+.grp{display:flex;flex-direction:column;gap:6px;padding:6px;margin:-6px;border-radius:16px}
+.grp .gl{font-size:12px;color:var(--tx3);padding-left:2px}
+.grp .gl em{font-style:normal;color:var(--tx3);opacity:.7;margin-left:4px}
+.grp .row{display:flex;gap:8px;flex-wrap:wrap}
+.grp.hot{background:rgba(220,255,31,.07);outline:1.5px dashed var(--lime-d)}
+.tile{width:84px;height:84px;border-radius:14px;background:#1c1e21;border:1px solid var(--line);position:relative;overflow:hidden;flex:none}
+.tile img,.tile video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.tile .tag{position:absolute;left:5px;bottom:5px;font-size:11px;font-weight:600;background:rgba(0,0,0,.72);padding:1px 6px;border-radius:6px;color:var(--lime);max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .dur{position:absolute;right:5px;top:5px;font-size:10.5px;background:rgba(0,0,0,.65);padding:0 5px;border-radius:5px;color:#ddd}
+.tile .x{position:absolute;right:4px;top:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.75);display:none;place-items:center}
+.tile:hover .x{display:grid}
+.tile:hover .dur{display:none}
+.tile .aud{width:100%;height:100%;display:grid;place-items:center;color:var(--tx2);padding:6px;text-align:center;font-size:10.5px;word-break:break-all}
+.tile.add{border:1.5px dashed #3d3f43;background:transparent;display:grid;place-items:center;color:var(--tx3);cursor:pointer}
+.tile.add:hover{border-color:var(--tx3);color:var(--tx)}
+.tile.slot{border:1.5px dashed #3d3f43;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--tx3);font-size:12px;cursor:pointer}
+.tile.slot.req{border-color:#5b5b2a;color:#c9d48a}
+.tile.slot:hover{border-color:var(--tx3);color:var(--tx)}
+.tile.pending{display:grid;place-items:center;font-size:11.5px;color:var(--tx2)}
+.tile.pending .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--lime)}
+.tile[draggable=true]{cursor:grab}
+.tile.drop-before{box-shadow:-4px 0 0 var(--lime)}
+.shelf{opacity:.55}
+.shelf:hover{opacity:.9}
+
+textarea#prompt{width:100%;min-height:96px;resize:vertical;background:transparent;border:0;outline:0;font-size:17px;line-height:1.55;color:var(--tx);padding:4px 2px}
+textarea#prompt::placeholder{color:var(--tx3)}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{height:44px;border-radius:13px;background:var(--chip);display:flex;align-items:center;gap:8px;padding:0 14px;font-size:16px;font-weight:550;white-space:nowrap;color:var(--tx)}
+.chip:hover{background:var(--chip-h)}
+.chip svg{color:var(--tx2)}
+.chip.icon{width:44px;padding:0;justify-content:center}
+.chip.model svg.m{color:var(--lime)}
+.chip.dim{color:var(--tx3)}
+.chip .chev{opacity:.7}
+.chip.sm{height:34px;font-size:13.5px;border-radius:10px;padding:0 12px}
+.chip.sm.on{background:#e8e8ea;color:#111}
+.stepper{display:flex;align-items:center;gap:2px;background:var(--chip);border-radius:13px;height:44px;padding:0 6px}
+.stepper button{width:30px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--tx2);font-size:20px}
+.stepper button:hover{background:var(--chip-h);color:var(--tx)}
+.stepper button:disabled{opacity:.3;cursor:default;background:none}
+.stepper span{min-width:44px;text-align:center;font-weight:650;font-size:16px}
+.stepper span small{color:var(--tx3);font-weight:500}
+.hint{font-size:12.5px;color:var(--amber);min-height:18px;padding-left:2px}
+.hint.ok{color:var(--tx3)}
+
+.foot{display:flex;gap:10px;align-items:flex-start}
+.foot .bar{flex:1;min-width:0}
+.genbtn{flex:none;height:44px;padding:0 20px 0 18px;border-radius:13px;background:var(--lime);color:#121212;font-weight:700;font-size:16px;display:flex;align-items:center;gap:10px;white-space:nowrap;transition:filter .1s,transform .08s}
+.genbtn:hover{filter:brightness(1.06)}
+.genbtn:active{transform:translateY(1px)}
+.genbtn small{font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px;opacity:.72;padding-left:10px;border-left:1px solid rgba(0,0,0,.18)}
+.genbtn:disabled{background:#333538;color:#6f6f77;cursor:not-allowed}
+.hintrow{display:flex;gap:12px;align-items:baseline}
+.hintrow .hint{flex:1}
+.hintrow .note{font-size:11.5px;color:var(--tx3);white-space:nowrap}
+
+/* 弹出菜单 */
+.pop{position:absolute;z-index:120;background:#28292c;border:1px solid #3d3f43;border-radius:16px;padding:6px;min-width:190px;box-shadow:0 18px 50px rgba(0,0,0,.55);max-height:70vh;overflow:auto}
+.pop .it{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border-radius:10px;text-align:left;font-size:14.5px}
+.pop .it:hover{background:#333538}
+.pop .it.on{color:var(--lime)}
+.pop .it.pk{display:flex;align-items:center;gap:10px} .pop .it.pk span{flex:1;min-width:0}
+.pop .it .x{font-style:normal;color:var(--tx3);width:22px;height:22px;display:grid;place-items:center;border-radius:6px;flex:none}
+.pop .it .x:hover{background:#3d3f43;color:var(--red)}
+.pop .it.danger{color:var(--red)}
+.pop .it small{display:block;color:var(--tx3);font-size:12px}
+.pop .it.off{opacity:.45}
+.pop .hd{font-size:12px;color:var(--tx3);padding:8px 12px 4px}
+.pop .rng{padding:10px 12px 12px;width:280px}
+.pop .rng .big{font-size:30px;font-weight:700;margin-bottom:6px}
+.pop .rng input[type=range]{width:100%;accent-color:var(--lime)}
+.pop .rng .q{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.pop .rng .q button{padding:5px 11px;border-radius:9px;background:var(--chip);font-size:13px}
+.pop .rng .q button:hover{background:var(--chip-h)}
+.pop .row2{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px}
+.pop .row2 .opts{display:flex;gap:4px}
+.pop .row2 .opts button{padding:4px 10px;border-radius:8px;background:var(--chip);font-size:13px}
+.pop .row2 .opts button.on{background:var(--lime);color:#111}
+.pop .muted{font-size:12px;color:var(--tx3);padding:6px 12px 8px;max-width:340px}
+
+/* 生成结果 */
+.gal-h{display:flex;align-items:center;gap:10px;margin:34px 4px 14px;flex-wrap:wrap}
+.gal-h h2{font-size:18px;margin:0;font-weight:650}
+.gal-h .n{color:var(--tx3);font-size:14px}
+.gal-h .sp{flex:1}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.task{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;display:flex;flex-direction:column}
+.task .vid{aspect-ratio:16/9;background:#0b0b0d;position:relative;display:grid;place-items:center}
+.task .vid video{width:100%;height:100%;object-fit:contain;background:#000;cursor:zoom-in}
+.task .vid .play{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;opacity:.9;transition:opacity .15s}
+.task .vid .play i{width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);display:grid;place-items:center}
+.task .vid:hover .play{opacity:0}
+.task .st{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--tx2);font-size:14px}
+.task .st.err{color:var(--red);padding:0 22px;text-align:center;font-size:13px}
+.spin{width:26px;height:26px;border-radius:50%;border:3px solid #333538;border-top-color:var(--lime);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.task .badge{position:absolute;left:10px;top:10px;font-size:11.5px;padding:2px 8px;border-radius:7px;background:rgba(0,0,0,.6);color:var(--tx2)}
+.task .badge.demo{left:auto;right:48px;color:var(--amber)}
+.task .badge.len{left:auto;right:10px;top:auto;bottom:10px}
+.fav{position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:10px;background:rgba(0,0,0,.55);display:grid;place-items:center;color:#ddd;z-index:2}
+.fav:hover{background:rgba(0,0,0,.8)}
+.fav.on{color:var(--pink)}
+.task .body{padding:12px 14px 12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.task .nm{font-weight:600;font-size:14.5px;word-break:break-all}
+.task .meta{font-size:12.5px;color:var(--tx3)}
+.task .ptag{font-size:11.5px;color:var(--tx2);background:#2b2d30;border-radius:6px;padding:1px 7px;width:fit-content}
+.task .pr{font-size:13px;color:var(--tx2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.task .acts{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
+.task .acts button{font-size:12.5px;padding:5px 10px;border-radius:9px;background:var(--chip);color:var(--tx2)}
+.task .acts button:hover{background:var(--chip-h);color:var(--tx)}
+.empty{color:var(--tx3);font-size:14px;padding:30px 6px;grid-column:1/-1}
+
+/* 我的元素 */
+.elems{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.el{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.el .th{aspect-ratio:1;background:#0d0d0f;display:grid;place-items:center;position:relative;color:var(--tx3)}
+.el .th img{width:100%;height:100%;object-fit:cover}
+.el .th .k{position:absolute;left:8px;top:8px;font-size:11px;background:rgba(0,0,0,.65);padding:1px 7px;border-radius:6px;color:var(--tx2)}
+.el .b{padding:9px 10px 10px;display:flex;flex-direction:column;gap:6px}
+.el .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.el .mt{font-size:11.5px;color:var(--tx3)}
+.el .acts{display:flex;gap:6px}
+.el .acts button{font-size:12px;padding:4px 9px;border-radius:8px;background:var(--chip);color:var(--tx2)}
+.el .acts button:hover{background:var(--chip-h);color:var(--tx)}
+.el .acts button.go{background:var(--lime);color:#111}
+.dropzone{border:1.5px dashed #3d3f43;border-radius:18px;padding:22px;text-align:center;color:var(--tx3);margin-bottom:16px;cursor:pointer}
+.dropzone:hover{border-color:var(--tx3);color:var(--tx2)}
+
+/* 播放器 */
+.lb{position:fixed;inset:0;z-index:100;background:rgba(6,6,8,.94);display:grid;grid-template-columns:minmax(0,1fr) 360px}
+.lb-stage{position:relative;display:grid;place-items:center;padding:28px 70px;min-width:0}
+.lb-stage video{max-width:100%;max-height:calc(100vh - 56px);border-radius:12px;background:#000;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;background:#28292c;display:grid;place-items:center;color:var(--tx)}
+.lb-nav:hover{background:#333538}
+.lb-nav:disabled{opacity:.25;cursor:default}
+.lb-nav.prev{left:14px} .lb-nav.next{right:14px}
+.lb-info{background:#1c1e21;border-left:1px solid var(--line);padding:22px 20px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.lb-info .top2{display:flex;align-items:center;gap:8px}
+.lb-info .top2 .sp{flex:1}
+.lb-info h3{margin:0;font-size:16px;word-break:break-all}
+.lb-info .kv{font-size:13px;display:grid;grid-template-columns:72px 1fr;gap:6px 10px}
+.lb-info .kv div:nth-child(odd){color:var(--tx3)}
+.lb-info .pp{white-space:pre-wrap;background:#121214;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13.5px;color:#dcdce0;user-select:text}
+.lb-info .btns{display:flex;flex-wrap:wrap;gap:8px}
+.lb-info .btns button{padding:8px 12px;border-radius:11px;background:var(--chip);font-size:13.5px}
+.lb-info .btns button:hover{background:var(--chip-h)}
+.lb-info .btns button.on{color:var(--pink)}
+.lb-info .small{font-size:12px;color:var(--tx3)}
+.iconbtn{width:34px;height:34px;border-radius:10px;background:var(--chip);display:grid;place-items:center}
+.iconbtn:hover{background:var(--chip-h)}
+
+/* 确认框 */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:130;padding:16px}
+.modal{background:#232528;border:1px solid #3d3f43;border-radius:24px;width:min(560px,100%);padding:22px;max-height:90vh;overflow:auto}
+.modal h3{margin:0 0 14px;font-size:19px}
+.modal table{width:100%;border-collapse:collapse;font-size:14px}
+.modal td{padding:6px 0;vertical-align:top}
+.modal td:first-child{color:var(--tx3);width:92px}
+.modal .pp{white-space:pre-wrap;background:#1c1e21;border-radius:10px;padding:8px 10px;font-size:13px;color:var(--tx2);max-height:160px;overflow:auto}
+.modal .cost{font-size:22px;font-weight:700;color:var(--lime)}
+.modal .btns{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.modal .btns button{padding:11px 18px;border-radius:13px;background:var(--chip);font-weight:600}
+.modal .btns button.go{background:var(--lime);color:#111}
+.modal .btns button.danger{background:#5a1c28;color:#ffd0d8}
+.modal .small{font-size:12px;color:var(--tx3);margin-top:8px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#2e3033;border:1px solid #47494e;padding:11px 18px;border-radius:13px;z-index:140;font-size:14px;max-width:min(680px,90vw);box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.toast.bad{border-color:#7a2e3b;background:#34181e}
+body.dragging .panel,body.dragging .dropzone{outline:2px dashed var(--lime-d);outline-offset:4px}
+[hidden]{display:none !important}
+
+/* 素材抽屉（生成框顶部） */
+.card.on{outline:1.5px solid var(--lime-d);outline-offset:-1.5px}
+.drawer{background:var(--card);border-radius:22px;padding:12px 14px;margin-bottom:12px}
+.drawer .dh{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.drawer .dh .sp{flex:1}
+.drawer .dh input[type=search]{background:#1c1e21;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13.5px;outline:0;width:170px}
+.drawer .dh label{font-size:12.5px;color:var(--tx2);display:flex;align-items:center;gap:5px;cursor:pointer;margin-right:4px}
+.drawer .dh label input{accent-color:var(--lime)}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:236px;overflow:auto;padding:2px}
+.dt{position:relative;aspect-ratio:1;border-radius:12px;background:#1c1e21;border:1px solid var(--line);overflow:hidden;cursor:pointer;display:grid;place-items:center;color:var(--tx3);font-size:11px;text-align:center}
+.dt img{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.dt:hover{border-color:#55555d}
+.dt.on{outline:2px solid var(--lime);outline-offset:-2px}
+.dt.ina{opacity:.35}
+.dt .k{position:absolute;left:5px;top:5px;font-size:10.5px;background:rgba(0,0,0,.65);padding:0 5px;border-radius:5px;color:var(--tx2)}
+.dt .ck{position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;background:var(--lime);color:#111;display:grid;place-items:center;font-size:12px;font-weight:800}
+.dt .tg{position:absolute;left:5px;bottom:5px;font-size:11px;font-weight:600;background:rgba(0,0,0,.72);padding:1px 6px;border-radius:6px;color:var(--lime);max-width:calc(100% - 10px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dt .nm{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 4px;font-size:10.5px;color:#ddd;background:linear-gradient(transparent,rgba(0,0,0,.8));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.dt .used{position:absolute;right:5px;top:5px;font-size:10px;background:rgba(0,0,0,.65);padding:0 5px;border-radius:5px;color:var(--tx3)}
+.dt.on .used{display:none}
+.dt.up{border:1.5px dashed #3d3f43;background:transparent;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.dt.up:hover{border-color:var(--tx3);color:var(--tx)}
+.pop .pk{display:grid;grid-template-columns:repeat(4,78px);gap:6px;padding:6px}
+
+/* 首页、项目页：生成框 + 右边窄栏 */
+body.railmode .work{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+.rail{min-width:0}
+body.railmode .rail{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:2px 12px 12px}
+body.railmode .gal-h{margin:12px 2px 10px;gap:6px}
+body.railmode .gal-h h2{font-size:15px}
+body.railmode .gallery{grid-template-columns:1fr;gap:10px}
+body.railmode .task{border-radius:14px}
+body.railmode .task .body{padding:8px 10px 10px;gap:4px}
+body.railmode .task .nm{font-size:12.5px}
+body.railmode .task .meta{font-size:11.5px}
+body.railmode .task .pr{display:none}
+body.railmode .task .acts button{font-size:11.5px;padding:3px 8px}
+body.railmode #openOut{display:none}
+body.railmode .top{grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px}
+body.railmode .card{padding:9px 10px;gap:9px;border-radius:16px}
+body.railmode .card .ico{width:36px;height:36px;border-radius:10px}
+body.railmode .card .ico svg{width:20px;height:20px}
+body.railmode .card .k{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.railmode .card .v{font-size:15px}
+body.railmode .hero{margin:4px 0 16px}
+body.railmode .hero h1{font-size:28px;margin-bottom:4px}
+.railmore{display:block;width:100%;text-align:center;font-size:13px;color:var(--tx2);padding:9px;border-radius:12px;background:var(--chip);margin-top:10px;text-decoration:none}
+.railmore:hover{background:var(--chip-h);color:var(--tx)}
+
+/* 卡片上的一采、二采 */
+.task .outs{display:flex;gap:5px;flex-wrap:wrap}
+.task .outs button{font-size:11.5px;padding:2px 4px 2px 8px;border-radius:7px;background:#2b2d30;color:var(--tx2);display:flex;align-items:center;gap:2px}
+.task .outs button.cur{color:var(--tx);background:#3d3f43}
+.task .outs .h{padding:0 4px;color:var(--tx3);font-size:13px}
+.task .outs .h:hover{color:var(--tx)}
+.task .outs .h.on{color:var(--pink)}
+
+/* 我的元素：多选 */
+.elbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 14px;font-size:13.5px;color:var(--tx2)}
+.elbar .sp{flex:1}
+.elbar a{color:var(--tx2)}
+.elbar button.go{background:var(--lime);color:#111;padding:7px 14px;border-radius:10px;font-weight:600}
+.el .th{cursor:pointer}
+.el .sel{position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:7px;border:1.5px solid rgba(255,255,255,.6);background:rgba(0,0,0,.45);display:grid;place-items:center;color:#111;font-size:13px;font-weight:800}
+.el.picked{outline:2px solid var(--lime);outline-offset:-1px}
+.el.picked .sel{background:var(--lime);border-color:var(--lime)}
+.el .placed{font-size:11.5px;color:var(--lime)}
+
+/* 播放器：并排对比 */
+.lb-v{display:grid;place-items:center;width:100%;height:100%;min-width:0}
+.lb-v.cmp{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.lb-v figure{margin:0;display:flex;flex-direction:column;gap:6px;align-items:center;min-width:0}
+.lb-v.cmp video{max-height:calc(100vh - 100px)}
+.lb-v figcaption{font-size:13px;color:var(--tx2)}
+
+@media (max-width:1250px){ .top{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media (max-width:1100px){
+  body.railmode .work{display:block}
+  body.railmode .rail{position:static;max-height:none;background:none;border:0;padding:0}
+  body.railmode .gallery{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+  .editor{flex-direction:column}
+  .lb{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  .lb-info{max-height:40vh;border-left:0;border-top:1px solid var(--line)}
+}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:4px}
+  .nav .sec,.nav #projBox,.navfoot,.brand{display:none}
+  .ni{width:auto}
+  .main{padding:18px 16px 60px}
+  .top{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){ .top{grid-template-columns:1fr} .gallery{grid-template-columns:1fr} .lb-stage{padding:16px 8px} .lb-nav{display:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="nav">
+    <div class="brand"><span class="lg"><svg width="30" height="30" viewBox="0 0 140 140"><rect width="140" height="140" rx="30" fill="#2b2d30"/><text x="70" y="88" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="64" font-weight="700" fill="#f2f2f2" letter-spacing="-2">H3</text><rect x="26" y="106" width="88" height="9" rx="4.5" fill="#47494e"/><rect x="26" y="106" width="56" height="9" rx="4.5" fill="#ff7a2f"/></svg></span>MiniMax H3 工作台</div>
+    <a class="ni" href="#/home" data-nav="home"><span class="t gray"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></span>首页</a>
+    <a class="ni" href="#/gens" data-nav="gens"><span class="t cyan"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></svg></span>我的生成<span class="cnt" id="cntGens"></span></a>
+    <a class="ni" href="#/elements" data-nav="elements"><span class="t blue"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 006 0v-1a10 10 0 10-4 8"/></svg></span>我的元素<span class="cnt" id="cntEls"></span></a>
+    <a class="ni" href="#/favs" data-nav="favs"><span class="t pink"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 018-2.8A4.5 4.5 0 0120 10c0 5.8-8 11-8 11z"/></svg></span>我的收藏<span class="cnt" id="cntFavs"></span></a>
+    <a class="ni" href="#/workflows" data-nav="workflows"><span class="t gray"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h4a3 3 0 013 3v4"/></svg></span>工作流<span class="cnt" id="cntWf"></span></a>
+    <div class="sec">项目<div class="sp"></div>
+      <button id="projSearchBtn" title="搜索项目"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
+      <button id="projSortBtn" title="排序"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M13 6h8M13 12h6M13 18h4"/></svg></button>
+    </div>
+    <div id="projBox">
+      <input class="side-in" id="projSearch" placeholder="搜索项目" hidden>
+      <div id="projList"></div>
+      <button class="ni new" id="projNewBtn"><span class="t"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>新建项目</button>
+    </div>
+    <div class="navfoot">
+      <div id="keyPill" class="pill"><b></b><span>…</span></div>
+    </div>
+  </aside>
+
+  <main class="main"><div class="inner">
+    <div id="banner"></div>
+    <div id="viewHead"></div>
+
+    <div class="work">
+    <section id="composer" class="panel">
+      <div class="top" id="top"></div>
+      <div class="drawer" id="drawer" hidden></div>
+      <div class="editor">
+        <div class="ed-main">
+          <div class="media" id="media"></div>
+          <textarea id="prompt" spellcheck="false"></textarea>
+          <div class="foot">
+            <div class="bar" id="bar"></div>
+            <button class="genbtn" id="genBtn"></button>
+          </div>
+          <div class="hintrow"><div class="hint" id="hint"></div><div class="note" id="genNote"></div></div>
+        </div>
+      </div>
+    </section>
+    <aside class="rail" id="rail"></aside>
+    </div>
+
+    <div id="galHome"><div id="galBox">
+      <div class="gal-h" id="galH"><h2 id="galTitle"></h2><span class="n" id="galN"></span><div class="filters" id="filters"></div><div class="sp"></div><button class="ghost" id="openOut">打开出片文件夹</button></div>
+      <div class="gallery" id="gallery"></div>
+      <button class="railmore" id="railMore" hidden></button>
+    </div></div>
+
+    <section id="wfView" hidden>
+      <div class="wfadd">
+        <input id="wfId" placeholder="粘贴工作流 ID，或 RunningHub 工作流页面的地址" spellcheck="false">
+        <input id="wfName" placeholder="名称（可不填）">
+        <input id="wfNote" placeholder="备注，如：第 15 镜专用、int8 解码">
+        <button class="go" id="wfAdd">添加并核对</button>
+      </div>
+      <div class="small" style="margin:0 4px 14px;color:var(--tx3)">添加时会读一次云端工作流（不扣费），认出它是单段还是分段，并检查窗口要用的节点和 15 个格子在不在。</div>
+      <div id="wfList"></div>
+    </section>
+    <section id="elemView" hidden>
+      <div class="dropzone" id="elDrop">把图片、视频、音频拖到这里，或点这里选择文件，存进素材库</div>
+      <div class="elbar" id="elBar"></div>
+      <div class="elems" id="elems"></div>
+    </section>
+  </div></main>
+</div>
+<input type="file" id="fileIn" multiple accept="image/*,video/*,audio/*,.mov,.heic" hidden>
+
+<script>
+// ---------- 图标 ----------
+const I = {
+  plus:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  snip:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 4h12a1 1 0 011 1v15l-7-4-7 4V5a1 1 0 011-1z"/></svg>',
+  at:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 006 0v-1a10 10 0 10-4 8"/></svg>',
+  diamond:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9z"/></svg>',
+  rect:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/></svg>',
+  clock:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  sound:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg>',
+  mute:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>',
+  sliders:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>',
+  chev:'<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
+  left:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>',
+  right:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
+  x:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  close:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  spark:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></svg>',
+  heart:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 20s-7.5-4.9-7.5-10.3A4.2 4.2 0 0112 7.1a4.2 4.2 0 017.5 2.6C19.5 15.1 12 20 12 20z"/></svg>',
+  heartOn:'<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7.5-4.9-7.5-10.3A4.2 4.2 0 0112 7.1a4.2 4.2 0 017.5 2.6C19.5 15.1 12 20 12 20z"/></svg>',
+  playBig:'<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>',
+  dots:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  folder:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>',
+  folderSm:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>',
+  film:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h3M4 12h3M4 16h3M17 8h3M17 12h3M17 16h3"/></svg>',
+  tag:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8" r="1.5"/></svg>',
+  audio:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>',
+  modelSD:'<svg class="m" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="10" width="3" height="9" rx="1"/><rect x="8" y="6" width="3" height="13" rx="1"/><rect x="13" y="9" width="3" height="10" rx="1"/><rect x="18" y="4" width="3" height="15" rx="1"/></svg>',
+  modelK:'<svg class="m" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 6c6-3 12 2 9 7s-11 3-8-2 9-2 9 4-6 6-9 5"/></svg>',
+};
+I.lib = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><path d="M17.2 14v6.4M14 17.2h6.4"/></svg>';
+I.modelRH = '<svg class="m" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h3a2 2 0 012 2v5"/></svg>';
+const modelIcon = m => m.平台 === 'runninghub' ? I.modelRH : /kling/i.test(m.名称) ? I.modelK : I.modelSD;
+const isRH = () => model().平台 === 'runninghub';
+const plabel = k => ((schema().properties || {})[k] || {}).title || KEYNAME[k] || k;
+
+// ---------- 状态 ----------
+// view：home / gens / elements / favs / project；ctx：生成框属于哪个项目（null = 首页，不归项目）
+const S = {cfg:null, st:null, view:'home', pid:null, ctx:undefined, projects:[], lib:[], elFilter:'all', galFilter:'all', projSort:'new',
+  mi:0, wi:0, assets:{}, assign:{}, shelf:[], paramsBy:{}, count:1, prefix:'', outDir:'', pending:[], pop:null, tasks:[], cards:new Map(), lb:null,
+  drawer:false, drF:'all', drQ:'', autoTag:true, caret:null, elSel:new Set(), cardFile:{}, railN:30, unseen:0, lastSt:null};
+const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } };
+S.drawer = ls('hf-drawer') === '1'; S.autoTag = ls('hf-autotag') !== '0';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEYNAME = {resolution:'分辨率', aspect_ratio:'画幅', duration:'时长', generate_audio:'生成声音', sound:'声音', bitrate_mode:'码率', output_format:'格式', cfg_scale:'贴合度'};
+const VALNAME = {adaptive:'自适应', standard:'标准', high:'高', on:'开', off:'关'};
+const FIELDNAME = {image_url:'首帧', end_image_url:'尾帧', last_image_url:'尾帧', video_url:'源视频', audio_url:'音频', image_urls:'参考图', video_urls:'参考视频', audio_urls:'参考音频'};
+const KINDNAME = {image:'图片', video:'视频', audio:'音频'};
+const DONE = ['completed', 'failed', 'nsfw', 'canceled'];
+
+const model = () => S.cfg.models[S.mi];
+const wf = () => model().方式[S.wi];
+const schema = () => (wf().参数表 || {}).schema || {properties:{}, required:[]};
+const project = id => S.projects.find(p => p.id === id);
+const kidsOf = id => S.projects.filter(p => (p.上级 || null) === (id || null));
+const famOf = id => [id, ...kidsOf(id).flatMap(k => famOf(k.id))];          // 自己和下面所有子项目
+const pathOf = id => { const out = []; for (let p = project(id), n = 0; p && n < 6; p = project(p.上级), n++) out.unshift(p); return out; };
+const ctxOut = () => S.ctx ? (project(S.ctx) || {}).输出目录 : (S.outDir || S.st.输出目录);
+
+async function api(path, body){
+  const r = await fetch(path, body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  let j; try { j = await r.json(); } catch { j = {错误:`后台没有回应（${r.status}）`}; }
+  if (!r.ok || j.错误) throw new Error(j.错误 || r.status);
+  return j;
+}
+function toast(msg, bad){ const t = document.createElement('div'); t.className = 'toast' + (bad ? ' bad' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), bad ? 6500 : 3000); }
+function confirmBox(title, html, okText, danger){
+  return new Promise(res => {
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal"><h3>${esc(title)}</h3><div style="font-size:14px;color:var(--tx2)">${html}</div><div class="btns"><button data-x="no">取消</button><button class="${danger ? 'danger' : 'go'}" data-x="ok">${esc(okText)}</button></div></div>`;
+    document.body.appendChild(bg);
+    bg.onclick = e => { const x = e.target.closest('[data-x]')?.dataset.x; if (e.target === bg || x){ bg.remove(); res(x === 'ok'); } };
+  });
+}
+
+// ---------- 素材字段 ----------
+function kindOf(field){ const k = S.cfg && (wf().格子类型 || {})[field]; if (k) return k; return field.includes('image') ? 'image' : field.includes('video') ? 'video' : field.includes('audio') ? 'audio' : null; }
+// 标签写法：Seedance @image1、Kling @image_1、H3 工作流 <Picture 1>
+function fmtTag(kind, n){ const m = model(); return m.标签.replace('{kind}', kind).replace('{Kind}', (m.标签类型 || {})[kind] || kind).replace('{n}', n); }
+const TAG_RE = /@(image|video|audio)_?(\d+)|<(Picture|Video|Audio) (\d+)>/g;
+const TAG_KIND = {Picture:'image', Video:'video', Audio:'audio'};
+const tagKey = (m) => (m[1] || TAG_KIND[m[3]]) + ':' + (m[2] || m[4]);
+function mediaFields(){
+  const sc = schema(), props = sc.properties || {}, req = sc.required || [], any = sc.至少一项 || [], over = wf().字段名 || {};
+  const out = [];
+  for (const [k, v] of Object.entries(props)){
+    const multi = v.type === 'array' && v.items && v.items.format === 'uri';
+    const single = v.type === 'string' && v.format === 'uri';
+    if (!multi && !single) continue;
+    out.push({field:k, kind:kindOf(k), multi, max: multi ? (v.maxItems || 10) : 1, label: over[k] || FIELDNAME[k] || k,
+              required: req.includes(k), anyOf: any.includes(k), isRef: multi && !over[k]});
+    if (!out[out.length - 1].kind) out.pop();
+  }
+  // 单个的槽（首帧、源视频）排前面，尾帧放最后；同类里图片、视频、音频
+  const rank = f => (f.multi ? 10 : /end|last/.test(f.field) ? 20 : 0) + ({image:0, video:1, audio:2}[f.kind] ?? 3);
+  return out.sort((a, b) => rank(a) - rank(b));
+}
+function tagFor(f, idx){
+  const m = model();
+  if (f.isRef){
+    let n = idx + 1;
+    if (f.kind === 'video' && wf()['源视频占 @video_1']) n += 1;
+    return fmtTag(f.kind, n);
+  }
+  if (f.field === 'video_url' && wf()['源视频占 @video_1']) return fmtTag('video', 1);
+  return f.multi ? `${f.label}${idx + 1}` : f.label;
+}
+function allTags(){
+  const out = [];
+  for (const f of mediaFields()) (S.assign[f.field] || []).forEach((id, i) => {
+    const t = tagFor(f, i); if (/^[@<]/.test(t)) out.push({tag:t, a:S.assets[id]});
+  });
+  return out.sort((x, y) => x.tag.localeCompare(y.tag, 'en', {numeric:true}));
+}
+function unassign(id){
+  for (const k in S.assign) S.assign[k] = S.assign[k].filter(x => x !== id);
+  S.shelf = S.shelf.filter(x => x !== id);
+}
+function place(id, field, beforeId){
+  const a = S.assets[id]; if (!a) return;
+  const fs = mediaFields();
+  let f = field && fs.find(x => x.field === field);
+  if (f && f.kind !== a.类型){ toast(`「${f.label}」要放${KINDNAME[f.kind]}，${a.名字} 是${KINDNAME[a.类型]}，已自动放到别处`, true); f = null; }
+  if (!f){
+    // 自动放：先空着的必填单槽 → 同类参考组 → 其他空单槽 → 搁架
+    const free = x => (S.assign[x.field] || []).filter(y => y !== id).length < x.max;
+    f = fs.find(x => !x.multi && x.kind === a.类型 && x.required && free(x))
+     || fs.find(x => x.multi && x.kind === a.类型 && free(x))
+     || fs.find(x => !x.multi && x.kind === a.类型 && free(x));
+  }
+  unassign(id);
+  if (!f){ S.shelf.push(id); return; }
+  const list = S.assign[f.field] || (S.assign[f.field] = []);
+  if (!f.multi){ list.forEach(old => S.shelf.push(old)); S.assign[f.field] = [id]; return; }
+  if (list.length >= f.max){ toast(`「${f.label}」最多 ${f.max} 个`, true); S.shelf.push(id); return; }
+  const at = beforeId ? list.indexOf(beforeId) : -1;
+  at >= 0 ? list.splice(at, 0, id) : list.push(id);
+}
+function reflow(){
+  // 换模型/方式后，按原来的顺序把素材重新放一遍
+  const order = [...Object.values(S.assign).flat(), ...S.shelf];
+  S.assign = {}; S.shelf = [];
+  const fields = new Set(mediaFields().map(f => f.field));
+  for (const id of order) place(id);
+  for (const k in S.assign) if (!fields.has(k)) delete S.assign[k];
+}
+
+// ---------- 参数 ----------
+function params(){
+  const ep = wf().endpoint, props = schema().properties || {};
+  const p = S.paramsBy[ep] || (S.paramsBy[ep] = {});
+  for (const [k, v] of Object.entries(props)){
+    if (k === 'prompt' || mediaFields().some(f => f.field === k)) continue;
+    if (!(k in p) && v.default !== undefined) p[k] = v.default;
+    if (k === 'duration' && !(k in p) && v.minimum !== undefined) p[k] = Math.max(5, v.minimum);
+  }
+  return p;
+}
+function paramKeys(){
+  const props = schema().properties || {}, media = new Set(mediaFields().map(f => f.field));
+  return Object.keys(props).filter(k => k !== 'prompt' && !media.has(k));
+}
+const simpleParam = v => v.enum || v.type === 'integer' || v.type === 'boolean' || v.type === 'number' || v.type === 'string';
+const showVal = v => VALNAME[v] ?? v;
+
+// ---------- 估价 ----------
+function srcSeconds(){
+  const id = (S.assign.video_url || [])[0]; return id ? (S.assets[id].秒 || 0) : 0;
+}
+function estimate(){
+  const m = model(), c = m.计价, p = params(), res = p.resolution || '720p';
+  if (c.方式 === '机器时长') return {each:null, gen:p.duration || 5};
+  const vids = Object.entries(S.assign).filter(([k]) => kindOf(k) === 'video').flatMap(([, ids]) => ids).map(id => S.assets[id]);
+  const hasVid = vids.length > 0;
+  const gen = wf().时长跟源视频 ? Math.max(4, srcSeconds()) : (p.duration || 5);
+  let usd;
+  if (c.方式 === 'token'){
+    const inDur = hasVid ? Math.min(30, vids.reduce((s, a) => s + (a.秒 || 0), 0)) : 0;
+    const tokens = c.像素[res] * (gen + inDur) * 24 / 1024;
+    usd = tokens / 1000 * c.每千token[res] * (hasVid ? c.有视频输入倍率 : 1);
+  } else {
+    usd = (hasVid ? c.有视频输入每秒 : c.每秒)[res] * gen;
+  }
+  return {each: usd * (S.cfg.当前折扣 || 1), gen};
+}
+
+// ---------- 校验 ----------
+function problems(){
+  const out = [], sc = schema(), prompt = $('prompt').value.trim(), props = sc.properties || {};
+  if (!wf()) return ['还没有工作流：到左边「工作流」里添加一个'];
+  if (!model().启用) out.push(`${model().名称} 没有启用：${model().停用原因 || ''}`);
+  if (wf().问题) out.push(wf().问题);
+  if ((sc.required || []).includes('prompt') && !prompt) out.push('要写提示词');
+  if (prompt && props.prompt && props.prompt.maxLength && prompt.length > props.prompt.maxLength) out.push(`提示词最多 ${props.prompt.maxLength} 字`);
+  for (const f of mediaFields()){
+    const n = (S.assign[f.field] || []).length;
+    if (f.required && !n) out.push(`要放「${f.label}」`);
+    if (!n && (wf().缺了不能跑 || {})[f.field]) out.push(wf().缺了不能跑[f.field]);
+    if (n > f.max) out.push(`「${f.label}」最多 ${f.max} 个`);
+  }
+  // RunningHub 反向检查：参考格子放了素材，提示词（所有段合起来）里却没有 <Picture N> 这种标签——没定义的格子模型会自己拿去用
+  if (isRH()){
+    const SLOT = {image:'图像', video:'参考视频', audio:'参考音频'};
+    const bad = [];
+    for (const f of mediaFields()) if (f.isRef) (S.assign[f.field] || []).forEach((id, i) => {
+      const t = tagFor(f, i);
+      if (!prompt.includes(t)) bad.push(`${SLOT[f.kind] || f.label}${i + 1} 放了 ${S.assets[id]?.名字 || id}，但提示词里没有 ${t}`);
+    });
+    if (bad.length) out.push(bad.join('；') + '。没定义的格子模型会自己拿去用：要用就在提示词里定义，不用就清空');
+  }
+  const any = sc.至少一项 || [];
+  if (any.length && !any.some(k => (S.assign[k] || []).length)) out.push('至少放一个参考素材（' + any.map(k => FIELDNAME[k] || k).join(' / ') + '）');
+  const total = Object.values(S.assign).flat().length;
+  if (total > 50) out.push('素材总数最多 50 个');
+  if (S.pending.length) out.push('素材还在传进来…');
+  if (!S.st.有RH密钥 && !S.st.演示) out.push('还没有 RunningHub API Key：点左下角填写');
+  return out;
+}
+
+// ---------- 生成框 ----------
+function renderTop(){
+  const m = model(), w = wf(), total = Object.values(S.assign).flat().length;
+  const max = Math.min(50, mediaFields().reduce((s, f) => s + f.max, 0));
+  const dir = ctxOut() || '';
+  $('top').innerHTML = `
+    <button class="card ${S.drawer ? 'on' : ''}" data-act="drawer" title="打开素材库，点一下就放进对应的格子"><div class="ico">${I.lib}</div><div class="t"><div class="k">素材库 · 已放 ${total}/${max || 0}</div><div class="v">${S.drawer ? '收起' : '选素材'}${I.chev.replace('class="chev"', `class="chev" style="display:inline;vertical-align:-2px;transform:rotate(${S.drawer ? -90 : 90}deg)"`)}</div></div></button>
+    <button class="card" data-pop="wf" title="${esc(w.名称)}　ID ${esc(w.workflowId || '')}"><div class="ico lime">${I.film}</div><div class="t"><div class="k">工作流 · ${esc(w.结构 || '')}</div><div class="v">${esc(w.名称)}</div></div></button>
+    <label class="card click"><div class="ico">${I.tag}</div><div class="t"><div class="k">文件名前缀</div><input class="v" id="prefix" placeholder="如 04镜" value="${esc(S.prefix)}"></div></label>
+    <button class="card" data-act="pickDir" title="${esc(dir)}"><div class="ico">${I.folder}</div><div class="t"><div class="k">出片到</div><div class="v">${esc(dir.split('/').filter(Boolean).pop() || dir)}</div></div></button>`;
+  $('prefix').oninput = e => { S.prefix = e.target.value; saveDraft(); };
+}
+
+function tileHTML(id, tag, field){
+  const a = S.assets[id]; if (!a) return '';
+  let inner;
+  if (a.类型 === 'audio') inner = `<div class="aud">${I.audio}<span>${esc(a.名字)}</span></div>`;
+  else inner = a.缩略图 ? `<img src="/api/file?p=${encodeURIComponent(a.缩略图)}" alt="">` : `<div class="aud">${esc(a.名字)}</div>`;
+  const dur = a.秒 && a.类型 !== 'image' ? `<span class="dur">${a.秒.toFixed(1)}s</span>` : '';
+  return `<div class="tile" draggable="true" data-id="${id}" data-field="${field || ''}" title="${esc(a.名字)}${a.转换 ? '（已转成能上传的格式）' : ''}">${inner}${dur}${tag ? `<span class="tag">${esc(tag)}</span>` : ''}<button class="x" data-act="remove" data-id="${id}" title="拿掉">${I.x}</button></div>`;
+}
+function renderMedia(){
+  const fs = mediaFields();
+  let h = '';
+  for (const f of fs){
+    const ids = S.assign[f.field] || [];
+    const flag = f.required ? '<em>必填</em>' : f.anyOf ? '<em>任选其一</em>' : '';
+    let row = ids.map((id, i) => tileHTML(id, tagFor(f, i), f.field)).join('');
+    row += S.pending.filter(p => p.field === f.field).map(pendHTML).join('');
+    if (!f.multi && !ids.length) row += `<div class="tile slot${f.required ? ' req' : ''}" data-act="pickInto" data-field="${f.field}">${I.plus}<span>${esc(f.label)}</span></div>`;
+    if (f.multi && ids.length < f.max) row += `<div class="tile add" data-act="pickInto" data-field="${f.field}" title="添加${esc(f.label)}">${I.plus}</div>`;
+    h += `<div class="grp" data-field="${f.field}"><div class="gl">${esc(f.label)}${f.multi ? ` ${ids.length}/${f.max}` : ''}${flag}</div><div class="row">${row}</div></div>`;
+  }
+  const loose = S.pending.filter(p => !p.lib && (!p.field || !fs.some(f => f.field === p.field)));
+  if (S.shelf.length || loose.length){
+    h += `<div class="grp shelf" data-field=""><div class="gl">这个工作流用不上的素材<em>拖到上面的格子里</em></div><div class="row">${S.shelf.map(id => tileHTML(id, '', '')).join('')}${loose.map(pendHTML).join('')}</div></div>`;
+  }
+  if (!fs.length && !S.shelf.length && !loose.length) h = '';
+  $('media').innerHTML = h;
+}
+function pendHTML(p){ return `<div class="tile pending">${p.pct < 1 ? Math.round(p.pct * 100) + '%' : '转换中…'}<div class="bar" style="width:${Math.round(p.pct * 100)}%"></div></div>`; }
+
+function renderBar(){
+  const m = model(), p = params(), props = schema().properties || {};
+  const keys = paramKeys();
+  const main = ['resolution', 'aspect_ratio', 'duration', 'generate_audio', 'sound'];
+  let h = `<button class="chip icon" data-act="addFiles" title="添加素材">${I.plus}</button>
+           <button class="chip icon" data-pop="tags" title="插入素材标签">${I.at}</button>
+           <button class="chip icon" data-pop="snip" title="提示词片段：常用的写法存起来，点一下插到光标处">${I.snip}</button>
+           <button class="chip model" data-pop="wf">${modelIcon(m)}${esc(wf().名称)}${I.chev}</button>`;
+  for (const k of main.filter(k => keys.includes(k))){
+    const v = props[k], val = p[k];
+    if (k === 'resolution') h += `<button class="chip" data-pop="enum" data-k="${k}" title="${esc(plabel(k))}">${I.diamond}${esc(val)}</button>`;
+    else if (k === 'aspect_ratio') h += `<button class="chip" data-pop="enum" data-k="${k}">${I.rect}${esc(showVal(val))}</button>`;
+    else if (k === 'duration') h += `<button class="chip" data-pop="dur" data-k="${k}">${I.clock}${val}s</button>`;
+    else if (v.type === 'boolean') h += `<button class="chip" data-act="toggle" data-k="${k}">${val ? I.sound : I.mute}${val ? '开' : '关'}</button>`;
+    else if (v.enum) h += `<button class="chip" data-pop="enum" data-k="${k}">${val === 'off' ? I.mute : I.sound}${esc(showVal(val))}</button>`;
+  }
+  if (wf().时长跟源视频) h += `<span class="chip dim" title="这个工作流的时长跟源视频走">${I.clock}跟源视频${srcSeconds() ? ' ' + Math.max(4, srcSeconds()).toFixed(1) + 's' : ''}</span>`;
+  const extra = keys.filter(k => !main.includes(k));
+  const chipVal = k => props[k].type === 'string' && !props[k].enum ? (p[k] ? `${plabel(k)} ${p[k]}` : (k === '种子' ? '随机种子' : '')) : showVal(p[k]);
+  if (extra.length) h += `<button class="chip" data-pop="adv" title="其他参数">${I.sliders}${extra.filter(k => simpleParam(props[k])).map(chipVal).filter(x => x !== '').map(esc).join(' · ') || '高级'}</button>`;
+  h += `<div class="stepper"><button data-act="cnt" data-d="-1" ${S.count <= 1 ? 'disabled' : ''}>−</button><span>${S.count}<small>/4</small></span><button data-act="cnt" data-d="1" ${S.count >= 4 ? 'disabled' : ''}>+</button></div>`;
+  $('bar').innerHTML = h;
+}
+
+// 提示词里写了、但当前素材里没有的标签（常见：Seedance 写 @image1，Kling 写 @image_1）
+function strayTags(){
+  const have = new Set(allTags().map(t => t.tag));
+  return [...new Set([...$('prompt').value.matchAll(TAG_RE)].map(m => m[0]))].filter(t => !have.has(t));
+}
+function convertTags(){
+  $('prompt').value = $('prompt').value.replace(TAG_RE, (...m) => { const [k, n] = tagKey(m).split(':'); return fmtTag(k, n); });
+  renderGen(); saveDraft();
+}
+function renderGen(){
+  const pr = problems(), e = estimate(), stray = strayTags();
+  const btn = $('genBtn');
+  btn.disabled = pr.length > 0;
+  btn.innerHTML = `${I.spark}生成${S.count > 1 ? ` ${S.count} 条` : ''}` + (e.each == null ? '' : `<small>约 $${(e.each * S.count).toFixed(2)}</small>`);
+  $('hint').className = 'hint' + (pr.length || stray.length ? '' : ' ok');
+  const keyOf = t => { const m = [...t.matchAll(TAG_RE)][0]; return m ? tagKey(m) : t; };
+  const fixable = stray.some(t => allTags().some(x => keyOf(x.tag) === keyOf(t)));
+  $('hint').innerHTML = pr.length ? esc(pr.join('；'))
+    : stray.length ? `提示词里的 ${esc(stray.join(' '))} 没有对应的素材${fixable ? `（${esc(model().名称)} 的写法是 ${esc(fmtTag('image', 1))}）<button class="ghost" style="margin-left:8px;padding:2px 9px;font-size:12px" data-act="convertTags">一键改写法</button>` : ''}`
+    : e.each == null ? esc(`${S.count > 1 ? S.count + ' 条，' : ''}按 RunningHub 机器运行时长扣 RH 币，跑完在任务详情里看耗时；空着的格子会自动关掉`)
+    : esc(`${S.count > 1 ? S.count + ' 条 × ' : ''}每条约 $${e.each.toFixed(2)}（按当前折扣 ${S.cfg.当前折扣} 估，实际以 Higgsfield 账单为准；失败不扣费）`);
+  $('genNote').textContent = S.st.演示 ? '演示模式：不连 RunningHub、不扣费' : '点了会先让你确认';
+  $('prompt').placeholder = `描述画面，用 @ 引用素材（${fmtTag('image', 1)} 是第一张参考图）`;
+}
+function renderComposer(){ renderTop(); renderDrawer(); renderMedia(); renderBar(); renderGen(); }
+
+// ---------- 素材抽屉 ----------
+// 素材 id → 被哪些生成用过（最新的在前）
+function usage(){
+  const u = {};
+  for (const t of S.tasks) for (const id of Object.values(t.素材 || {}).flat()){
+    const x = u[id] || (u[id] = {n:0, last:'', who:[]});
+    x.n++; if (t.创建 > x.last) x.last = t.创建;
+    if (x.who.length < 4) x.who.push(`${t.前缀 || '未命名'}（${new Date(t.创建).toLocaleDateString('zh-CN', {month:'numeric', day:'numeric'})}）`);
+  }
+  return u;
+}
+function libList(kind, q, f){
+  const u = usage(); let l = S.lib.slice();
+  if (f === 'recent') l = l.filter(a => u[a.id]).sort((a, b) => u[b.id].last.localeCompare(u[a.id].last));
+  else if (f && f !== 'all') l = l.filter(a => a.类型 === f);
+  if (kind) l = l.filter(a => a.类型 === kind);
+  if (q) l = l.filter(a => a.名字.toLowerCase().includes(q.toLowerCase()));
+  return l;
+}
+function assignedTag(id){
+  for (const f of mediaFields()){ const i = (S.assign[f.field] || []).indexOf(id); if (i >= 0) return tagFor(f, i); }
+  return null;
+}
+function dtHTML(a, u){
+  const tag = assignedTag(a.id), x = u[a.id], usable = mediaFields().some(f => f.kind === a.类型);
+  const th = a.类型 === 'audio' ? I.audio : a.缩略图 ? `<img src="/api/file?p=${encodeURIComponent(a.缩略图)}" alt="" loading="lazy">` : '';
+  const tip = `${a.名字}${x ? `\n用过 ${x.n} 次：${x.who.join('、')}` : '\n还没用过'}${usable ? '' : `\n这个工作流用不上${KINDNAME[a.类型]}`}`;
+  return `<div class="dt ${tag ? 'on' : ''} ${usable ? '' : 'ina'}" draggable="true" data-lid="${a.id}" title="${esc(tip)}">${th}<span class="k">${KINDNAME[a.类型]}</span>${x ? `<span class="used">用过 ${x.n}</span>` : ''}${tag ? `<span class="ck">✓</span><span class="tg">${esc(tag)}</span>` : `<span class="nm">${esc(a.名字)}</span>`}</div>`;
+}
+function renderDrawer(){
+  const d = $('drawer'); d.hidden = !S.drawer || !composerOn(); if (d.hidden) return;
+  const opts = [['all', '全部'], ['image', '图片'], ['video', '视频'], ['audio', '音频'], ['recent', '最近用过']];
+  if (!d.firstChild){
+    d.innerHTML = `<div class="dh"><span id="drF" style="display:contents"></span><input type="search" id="drQ" placeholder="搜素材名"><div class="sp"></div>
+      <label title="把素材放进格子时，在提示词光标处写上它的标签（${esc(fmtTag('image', 1))} 这种）"><input type="checkbox" id="drAuto">放进时自动写标签</label>
+      <button class="chip sm" data-act="drawer">收起</button></div><div class="dgrid" id="dgrid"></div><div class="hint ok" style="margin-top:8px">点一下放进对应的格子，再点一下拿掉；也可以拖到指定的格子上。鼠标停在素材上能看到它被哪些生成用过。</div>`;
+    $('drQ').oninput = e => { S.drQ = e.target.value.trim(); renderDrawerGrid(); };
+    $('drAuto').onchange = e => { S.autoTag = e.target.checked; ls('hf-autotag', S.autoTag ? '1' : '0'); };
+  }
+  $('drF').innerHTML = opts.map(([k, l]) => `<button class="chip sm ${S.drF === k ? 'on' : ''}" data-dr="${k}">${l}</button>`).join('');
+  $('drAuto').checked = S.autoTag;
+  renderDrawerGrid();
+}
+function renderDrawerGrid(){
+  const u = usage(), list = libList(null, S.drQ, S.drF);
+  $('dgrid').innerHTML = list.map(a => dtHTML(a, u)).join('') + `<div class="dt up" data-act="addFiles">${I.plus}<span>从电脑选</span></div>`;
+}
+$('drawer').addEventListener('click', e => {
+  const f = e.target.closest('[data-dr]'); if (f){ S.drF = f.dataset.dr; renderDrawer(); return; }
+  const t = e.target.closest('[data-lid]'); if (!t) return;
+  const id = t.dataset.lid;
+  if (assignedTag(id) || S.shelf.includes(id)){ unassign(id); renderComposer(); saveDraft(); }
+  else putAsset(id);
+});
+function toggleDrawer(){ S.drawer = !S.drawer; ls('hf-drawer', S.drawer ? '1' : '0'); renderTop(); renderDrawer(); }
+// 从素材库放进生成框：放进对应格子 + 自动写标签
+function putAsset(id, field, quiet){
+  const a = S.assets[id]; if (!a) return null;
+  place(id, field);
+  const tag = assignedTag(id);
+  if (!tag){ if (!quiet) toast(`${a.名字}：这个工作流没有空的${KINDNAME[a.类型]}格子，先放在「用不上的素材」里`, true); }
+  else if (S.autoTag) autoTag(tag);
+  renderComposer(); saveDraft();
+  return tag;
+}
+function autoTag(tag){
+  if (!/^[@<]/.test(tag)) return;
+  const ta = $('prompt'), v = ta.value;
+  if (v.includes(tag)) return;
+  const s = Math.min(S.caret ?? v.length, v.length);
+  const ins = (s > 0 && /[A-Za-z0-9>.,;:!?)]/.test(v[s - 1]) ? ' ' : '') + tag + ' ';
+  ta.value = v.slice(0, s) + ins + v.slice(s);
+  S.caret = s + ins.length;
+}
+['keyup', 'click', 'input', 'blur'].forEach(ev => $('prompt').addEventListener(ev, () => { S.caret = $('prompt').selectionStart; }));
+// ---------- 提示词片段 ----------
+function insertText(text){
+  const ta = $('prompt'), v = ta.value, s = Math.min(S.caret ?? v.length, v.length);
+  const pre = s > 0 && !/\s$/.test(v.slice(0, s)) && !/^[，。；、,.;]/.test(text) ? (text.includes('\n') ? '\n' : ' ') : '';
+  ta.value = v.slice(0, s) + pre + text + v.slice(s); S.caret = s + pre.length + text.length;
+  ta.focus(); ta.setSelectionRange(S.caret, S.caret); renderGen(); saveDraft();
+}
+async function popSnip(anchor){
+  let list = []; try { list = await api('/api/snippets'); } catch (err){ toast(err.message, true); return; }
+  const ta = $('prompt'), sel = ta.value.slice(S.selA ?? 0, S.selB ?? 0).trim(), all = ta.value.trim();
+  const h = `<div class="hd">提示词片段${list.length ? `（${list.length}）` : ''}</div>`
+    + (list.map(x => `<button class="it pk" data-v="use:${x.id}" title="${esc(x.内容)}"><span>${esc(x.名称)}<small>${esc(x.内容.replace(/\s+/g, ' ').slice(0, 70))}</small></span><i class="x" data-v="del:${x.id}" title="删除这个片段">×</i></button>`).join('')
+       || '<div class="small" style="padding:6px 12px 10px;color:var(--tx3);max-width:300px">还没有片段。把常用的写法（镜头、光线、声音的固定句子）存起来，下次点一下就插进提示词。</div>')
+    + (sel ? `<button class="it" data-v="save:sel"><span>把选中的文字存成片段<small>${esc(sel.replace(/\s+/g, ' ').slice(0, 60))}</small></span></button>` : '')
+    + (all ? `<button class="it" data-v="save:all"><span>把整段提示词存成片段</span></button>` : '');
+  openPop(anchor, h, async (v, el, ev) => {
+    const [act, id] = v.split(':');
+    try {
+      if (act === 'del'){ ev.stopPropagation(); await api(`/api/snippets/${id}/delete`, {}); closePop(); toast('片段已删除'); }
+      else if (act === 'use'){ closePop(); insertText(list.find(x => x.id === id).内容); }
+      else if (act === 'save'){ closePop(); const x = await api('/api/snippets', {内容:id === 'sel' ? sel : all}); toast(`已存成片段「${x.名称}」`); }
+    } catch (err){ toast(err.message, true); }
+  });
+  if (S.pop) S.pop.dataset.from = 'snip';
+}
+['keyup', 'mouseup', 'select', 'blur'].forEach(ev => $('prompt').addEventListener(ev, () => { S.selA = $('prompt').selectionStart; S.selB = $('prompt').selectionEnd; }));
+function popSlot(anchor, field){
+  const f = mediaFields().find(x => x.field === field); if (!f) return;
+  const u = usage(), list = libList(f.kind);
+  const h = `<div class="hd">放进「${esc(f.label)}」</div><button class="it" data-v="__file">${I.plus}从电脑选${KINDNAME[f.kind]}…</button>` +
+    (list.length ? `<div class="pk">${list.slice(0, 80).map(a => dtHTML(a, u)).join('')}</div>` : `<div class="muted">素材库里还没有${KINDNAME[f.kind]}</div>`);
+  const p = openPop(anchor, h, v => { if (v === '__file'){ closePop(); pickTarget = field; pickLib = false; $('fileIn').click(); } });
+  p.addEventListener('click', e => { const t = e.target.closest('[data-lid]'); if (!t) return; closePop(); putAsset(t.dataset.lid, field); });
+}
+
+// ---------- 弹出菜单 ----------
+function closePop(){ if (S.pop){ S.pop.remove(); S.pop = null; } }
+function openPop(anchor, html, onclick){
+  closePop();
+  const p = document.createElement('div'); p.className = 'pop'; p.innerHTML = html;
+  document.body.appendChild(p);
+  const r = anchor.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+  p.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 12)) + scrollX + 'px';
+  const below = r.bottom + 8 + h < innerHeight || r.top < h + 16;
+  p.style.top = (below ? r.bottom + 8 : r.top - h - 8) + scrollY + 'px';
+  p.addEventListener('click', e => { const t = e.target.closest('[data-v]'); if (t) onclick(t.dataset.v, t, e); });
+  S.pop = p; return p;
+}
+document.addEventListener('mousedown', e => { if (S.pop && !S.pop.contains(e.target) && !e.target.closest('[data-pop],[data-act=pickInto]')) closePop(); });
+
+function popModel(anchor){
+  let h = '';
+  S.cfg.models.forEach((m, i) => {
+    h += `<div class="hd">${esc(m.名称)} · ${esc(m.厂家)}${m.启用 ? '' : '（未启用）'}</div>`;
+    m.方式.forEach((w, j) => h += `<button class="it ${i === S.mi && j === S.wi ? 'on' : ''} ${m.启用 ? '' : 'off'}" data-v="${i}:${j}"><span>${esc(w.名称)}<small>${esc(w.endpoint)}</small></span></button>`);
+  });
+  openPop(anchor, h, v => { const [i, j] = v.split(':').map(Number); S.mi = i; S.wi = j; reflow(); closePop(); renderComposer(); saveDraft(); });
+}
+function popWf(anchor){
+  const h = `<div class="hd">工作流（共 ${model().方式.length} 个）</div>` + model().方式.map((w, j) => `<button class="it ${j === S.wi ? 'on' : ''}" data-v="${j}"><span>${esc(w.名称)}<small>${esc([w.结构, w.workflowId ? 'ID …' + w.workflowId.slice(-6) : '', w.问题 ? '有问题：' + w.问题 : w.备注].filter(Boolean).join(' · ')).slice(0, 110)}</small></span></button>`).join('')
+    + `<button class="it" data-v="manage"><span>管理工作流…<small>添加新的工作流 ID、改名、删除</small></span></button>`;
+  openPop(anchor, h, v => { closePop(); if (v === 'manage'){ location.hash = '#/workflows'; return; } S.wi = +v; reflow(); renderComposer(); saveDraft(); });
+}
+function popEnum(anchor, k){
+  const v = schema().properties[k], p = params();
+  const h = `<div class="hd">${esc(plabel(k))}</div>` + v.enum.map(x => `<button class="it ${x === p[k] ? 'on' : ''}" data-v="${esc(x)}">${esc(showVal(x))}${showVal(x) !== x ? `<small style="display:inline;margin-left:8px">${esc(x)}</small>` : ''}</button>`).join('');
+  openPop(anchor, h, x => { p[k] = x; closePop(); renderComposer(); saveDraft(); });
+}
+function popDur(anchor, k){
+  const v = schema().properties[k], p = params();
+  const qs = [4, 5, 8, 10, 15, 20, 30].filter(x => x >= v.minimum && x <= v.maximum);
+  const pop = openPop(anchor, `<div class="rng"><div class="big"><span id="durV">${p[k]}</span> 秒</div>
+    <input type="range" min="${v.minimum}" max="${v.maximum}" step="1" value="${p[k]}" id="durR">
+    <div class="q">${qs.map(x => `<button data-v="${x}">${x}s</button>`).join('')}</div>
+    <div class="muted" style="padding:8px 0 0">可选 ${v.minimum}–${v.maximum} 秒</div></div>`, x => { p[k] = +x; closePop(); renderComposer(); saveDraft(); });
+  pop.querySelector('#durR').oninput = e => { p[k] = +e.target.value; pop.querySelector('#durV').textContent = p[k]; renderBar(); renderGen(); saveDraft(); };
+}
+function popAdv(anchor){
+  const props = schema().properties, p = params(), main = ['resolution', 'aspect_ratio', 'duration', 'generate_audio', 'sound'];
+  const extra = paramKeys().filter(k => !main.includes(k));
+  let h = '';
+  for (const k of extra){
+    const v = props[k];
+    if (v.enum) h += `<div class="row2"><span>${esc(plabel(k))}</span><div class="opts">${v.enum.map(x => `<button class="${x === p[k] ? 'on' : ''}" data-v="${esc(k)}=${esc(x)}">${esc(showVal(x))}</button>`).join('')}</div></div>`;
+    else if (v.type === 'boolean') h += `<div class="row2"><span>${esc(plabel(k))}</span><div class="opts"><button class="${p[k] ? 'on' : ''}" data-v="${k}=true">开</button><button class="${!p[k] ? 'on' : ''}" data-v="${k}=false">关</button></div></div>`;
+    else if (v.type === 'number' || v.type === 'integer') h += `<div class="row2"><span>${esc(plabel(k))} <b>${p[k] ?? ''}</b></span><input type="range" data-k="${k}" min="${v.minimum ?? 0}" max="${v.maximum ?? 1}" step="${v.multipleOf || (v.type === 'integer' ? 1 : 0.01)}" value="${p[k] ?? v.default ?? 0}" style="accent-color:var(--lime)"></div>`;
+    else if (v.type === 'string') h += `<div class="row2"><span>${esc(plabel(k))}</span><input type="text" data-k="${k}" value="${esc(p[k] ?? '')}" placeholder="${k === '种子' ? '空着 = 随机' : ''}" style="background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:6px 9px;width:190px"></div>${v.description ? `<div class="muted" style="padding:0 0 6px;font-size:12px">${esc(v.description)}</div>` : ''}`;
+    else h += `<div class="muted">${esc(k)}：窗口暂不支持这种参数，不会发送</div>`;
+  }
+  const pop = openPop(anchor, h, s => {
+    const [k, x] = s.split('='); const v = props[k];
+    p[k] = v.type === 'boolean' ? x === 'true' : x; closePop(); renderComposer(); saveDraft();
+  });
+  pop.querySelectorAll('input[type=text]').forEach(r => r.oninput = e => { p[e.target.dataset.k] = e.target.value.trim(); renderBar(); saveDraft(); });
+  pop.querySelectorAll('input[type=range]').forEach(r => r.oninput = e => { const k = e.target.dataset.k; p[k] = +e.target.value; e.target.previousElementSibling.querySelector('b').textContent = p[k]; renderBar(); saveDraft(); });
+}
+function popTags(anchor, replaceAt){
+  const tags = allTags();
+  const h = tags.length ? tags.map(t => `<button class="it" data-v="${esc(t.tag)}">${t.a.类型 === 'audio' ? I.audio : t.a.缩略图 ? `<img src="/api/file?p=${encodeURIComponent(t.a.缩略图)}" style="width:34px;height:34px;object-fit:cover;border-radius:7px">` : ''}<span style="color:var(--lime)">${esc(t.tag)}<small>${esc(t.a.名字)}</small></span></button>`).join('')
+    : '<div class="muted">还没有可以引用的参考素材。先拖素材进来。</div>';
+  openPop(anchor, h, tag => insertTag(tag, replaceAt));
+}
+function insertTag(tag, replaceAt){
+  const ta = $('prompt'); let s = ta.selectionStart, e = ta.selectionEnd, v = ta.value;
+  if (replaceAt && v[s - 1] === '@') s -= 1;
+  const ins = tag + ' ';
+  ta.value = v.slice(0, s) + ins + v.slice(e);
+  ta.focus(); ta.selectionStart = ta.selectionEnd = s + ins.length;
+  closePop(); renderGen(); saveDraft();
+}
+
+// ---------- 事件（生成框）----------
+document.addEventListener('click', async e => {
+  const pop = e.target.closest('[data-pop]');
+  if (pop){
+    const t = pop.dataset.pop;
+    if (S.pop && S.pop.dataset.from === t + (pop.dataset.k || '')){ closePop(); return; }
+    ({model:() => popModel(pop), wf:() => popWf(pop), enum:() => popEnum(pop, pop.dataset.k), dur:() => popDur(pop, pop.dataset.k), adv:() => popAdv(pop), tags:() => popTags(pop), snip:() => popSnip(pop),
+      proj:() => popProject(pop, pop.dataset.k), move:() => popMove(pop, pop.dataset.k)})[t]();
+    if (S.pop) S.pop.dataset.from = t + (pop.dataset.k || '');
+    return;
+  }
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const act = a.dataset.act;
+  if (act === 'addFiles'){ pickTarget = null; pickLib = false; $('fileIn').click(); }
+  else if (act === 'pickInto'){
+    if (S.pop && S.pop.dataset.from === 'slot' + a.dataset.field){ closePop(); return; }
+    popSlot(a, a.dataset.field); if (S.pop) S.pop.dataset.from = 'slot' + a.dataset.field;
+  }
+  else if (act === 'drawer') toggleDrawer();
+  else if (act === 'convertTags') convertTags();
+  else if (act === 'remove'){ e.stopPropagation(); unassign(a.dataset.id); renderComposer(); saveDraft(); }
+  else if (act === 'toggle'){ const p = params(); p[a.dataset.k] = !p[a.dataset.k]; renderComposer(); saveDraft(); }
+  else if (act === 'cnt'){ S.count = Math.max(1, Math.min(4, S.count + +a.dataset.d)); renderBar(); renderGen(); saveDraft(); }
+  else if (act === 'pickDir'){
+    try {
+      const j = await api('/api/pick-folder', {}); if (!j.路径) return;
+      if (S.ctx){ await api('/api/projects/' + S.ctx, {输出目录:j.路径}); await loadProjects(); }
+      else S.outDir = j.路径;
+      renderTop(); renderHead(); saveDraft();
+    } catch (err){ toast(err.message, true); }
+  }
+});
+$('prompt').addEventListener('input', e => {
+  renderGen(); saveDraft();
+  if (e.inputType === 'insertText' && e.data === '@' && allTags().length){ popTags($('prompt'), true); if (S.pop) S.pop.dataset.from = 'tags'; }
+});
+
+// 选文件 / 拖文件
+let pickTarget = null, pickLib = false;
+$('fileIn').onchange = e => { addFiles([...e.target.files], pickTarget, pickLib); e.target.value = ''; };
+function addFiles(files, field, libOnly){
+  for (const f of files){
+    const ph = {name:f.name, pct:0, field, lib:libOnly};
+    S.pending.push(ph); if (!libOnly){ renderMedia(); renderGen(); }
+    const x = new XMLHttpRequest();
+    x.open('POST', '/api/assets');
+    x.setRequestHeader('X-Name', encodeURIComponent(f.name));
+    x.upload.onprogress = ev => { if (ev.lengthComputable){ ph.pct = ev.loaded / ev.total; libOnly ? renderElems() : renderMedia(); } };
+    const done = () => { S.pending = S.pending.filter(p => p !== ph); };
+    x.onload = () => {
+      done(); let j; try { j = JSON.parse(x.responseText); } catch { j = {错误:'后台没有回应'}; }
+      if (x.status >= 300 || j.错误) toast(`${f.name}：${j.错误 || x.status}`, true);
+      else { S.assets[j.id] = j; if (!S.lib.some(a => a.id === j.id)) S.lib.unshift(j); renderCounts(); if (!libOnly){ const tag = putAsset(j.id, field, true); if (tag) toast(`${j.名字} → ${tag}`); } }
+      if (libOnly) loadLib(); else { renderComposer(); saveDraft(); }
+    };
+    x.onerror = () => { done(); toast(`${f.name} 传不进来，后台还开着吗？`, true); libOnly ? renderElems() : renderComposer(); };
+    x.send(f);
+  }
+  if (libOnly) renderElems();
+}
+const composerOn = () => S.view === 'home' || S.view === 'project';
+let dragDepth = 0;
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+addEventListener('dragenter', e => { if (hasFiles(e)){ dragDepth++; document.body.classList.add('dragging'); } });
+addEventListener('dragleave', e => { if (hasFiles(e) && --dragDepth <= 0){ dragDepth = 0; document.body.classList.remove('dragging'); } });
+addEventListener('dragover', e => {
+  e.preventDefault();
+  document.querySelectorAll('.grp.hot,.drop-before').forEach(x => x.classList.remove('hot', 'drop-before'));
+  const g = e.target.closest('.grp'); if (g && (hasFiles(e) || dragId)) g.classList.add('hot');
+  const t = e.target.closest('.tile[data-id]'); if (t && dragId && t.dataset.id !== dragId && t.dataset.field) t.classList.add('drop-before');
+});
+addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  document.querySelectorAll('.grp.hot,.drop-before').forEach(x => x.classList.remove('hot', 'drop-before'));
+  const g = e.target.closest('.grp'), field = g ? g.dataset.field || null : null;
+  if (hasFiles(e)){
+    if (S.view === 'elements') addFiles([...e.dataTransfer.files], null, true);
+    else if (composerOn()) addFiles([...e.dataTransfer.files], field);
+    else toast('到首页、项目或「我的元素」里再拖素材', true);
+    return;
+  }
+  if (dragId){
+    const before = e.target.closest('.tile[data-id]');
+    if (g && g.classList.contains('shelf')){ unassign(dragId); S.shelf.push(dragId); }
+    else if (field){
+      place(dragId, field, before && before.dataset.id !== dragId ? before.dataset.id : null);
+      const tag = dragLib && assignedTag(dragId); if (tag && S.autoTag) autoTag(tag);
+    }
+    dragId = null; dragLib = false; renderComposer(); saveDraft();
+  }
+});
+let dragId = null;
+let dragLib = false;
+document.addEventListener('dragstart', e => { const t = e.target.closest?.('.tile[data-id],.dt[data-lid]'); if (t){ dragId = t.dataset.id || t.dataset.lid; dragLib = !!t.dataset.lid; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } });
+document.addEventListener('dragend', () => { dragId = null; document.querySelectorAll('.grp.hot,.drop-before').forEach(x => x.classList.remove('hot', 'drop-before')); });
+
+// ---------- 提交 ----------
+$('genBtn').onclick = () => {
+  if (problems().length) return;
+  const m = model(), w = wf(), p = params(), e = estimate(), prompt = $('prompt').value.trim();
+  const props = schema().properties;
+  const shown = paramKeys().filter(k => simpleParam(props[k])).map(k => `${plabel(k)} ${k === 'duration' ? p[k] + ' 秒' : props[k].type === 'string' && !props[k].enum ? (p[k] || '随机') : showVal(p[k])}`).join(' · ');
+  const rhx = isRH();
+  const outLine = rhx ? (w.输出名 || []).map(n => `${esc(S.prefix.trim() || '未命名')}_${esc(m.简称)}_时间_序号_${esc(n)}.mp4`).join('<br>') + '<br><small style="color:var(--tx3)">每一份单独下载，旁边各存一份同名 .json 记录</small>'
+    : `${esc((S.prefix.trim() || '未命名'))}_${esc(m.简称)}_时间_序号.mp4（旁边存一份同名 .json 记录）`;
+  const mediaRows = mediaFields().filter(f => (S.assign[f.field] || []).length).map(f =>
+    `<tr><td>${esc(f.label)}</td><td>${S.assign[f.field].map((id, i) => `<span style="color:var(--lime)">${esc(tagFor(f, i))}</span> ${esc(S.assets[id].名字)}`).join('<br>')}</td></tr>`).join('');
+  const dir = ctxOut();
+  const pj = S.ctx ? project(S.ctx) : null;
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = `<div class="modal"><h3>确认提交到 RunningHub${S.st.演示 ? '（演示，不扣费）' : ''}</h3><table>
+    <tr><td>项目</td><td>${pj ? esc(pj.名称) : '<span style="color:var(--tx3)">不归项目（首页）</span>'}</td></tr>
+    <tr><td>模型</td><td>${esc(m.名称)} · ${esc(w.名称)}<br><small style="color:var(--tx3)">${esc(w.endpoint)}</small></td></tr>
+    <tr><td>参数</td><td>${esc(shown)}${w.时长跟源视频 ? ' · 时长跟源视频' : ''}</td></tr>
+    ${mediaRows}
+    <tr><td>提示词</td><td><div class="pp">${esc(prompt) || '<i>（无）</i>'}</div></td></tr>
+    <tr><td>数量</td><td>${S.count} 条</td></tr>
+    <tr><td>存到</td><td>${esc(dir)}/<br>${outLine}</td></tr>
+    <tr><td>预计</td><td><span class="cost">${rhx ? '按机器运行时长扣 RH 币' : `约 $${(e.each * S.count).toFixed(2)}`}</span></td></tr></table>
+    <div class="small">${rhx ? '没放素材的格子会传占位文件并关掉开关。跑的过程中随时能取消，但取消后还没下载的那一采就拿不到了。' : `估价按 models.json 里的价格和折扣 ${S.cfg.当前折扣} 算，实际以 Higgsfield 账单为准。失败、被内容审核拦下的不扣费。`}</div>
+    <div class="btns"><button data-x="no">取消</button><button class="go" data-x="go">${S.st.演示 ? '提交（演示）' : '确认提交，会扣费'}</button></div></div>`;
+  document.body.appendChild(bg);
+  bg.onclick = async ev => {
+    const x = ev.target.closest('[data-x]')?.dataset.x;
+    if (ev.target === bg || x === 'no') return bg.remove();
+    if (x !== 'go') return;
+    ev.target.disabled = true;
+    const body = {endpoint:w.endpoint, 参数:buildParams(), 素材:Object.fromEntries(Object.entries(S.assign).filter(([, v]) => v.length)),
+      数量:S.count, 前缀:S.prefix, 输出目录:dir, 项目:S.ctx || null, 估价:e.each == null ? null : +e.each.toFixed(3), 表单:snapshot()};
+    try { await api('/api/submit', body); bg.remove(); toast(`已提交 ${S.count} 条，下面看进度`); pollTasks(); }
+    catch (err){ ev.target.disabled = false; toast(err.message, true); }
+  };
+};
+function buildParams(){
+  const p = params(), props = schema().properties, out = {};
+  for (const k of paramKeys()) if (simpleParam(props[k]) && p[k] !== undefined) out[k] = p[k];
+  const prompt = $('prompt').value.trim();
+  if (prompt && props.prompt) out.prompt = prompt;
+  return out;
+}
+function snapshot(){ return {mi:S.mi, wi:S.wi, endpoint:wf().endpoint, prompt:$('prompt').value, paramsBy:{[wf().endpoint]:{...params()}}, assign:JSON.parse(JSON.stringify(S.assign)), prefix:S.prefix, count:S.count}; }
+
+// ---------- 生成结果 ----------
+const STATUS = {uploading:'上传素材中', queued:'排队中', in_progress:'生成中', completed:'完成', failed:'失败', nsfw:'被内容审核拦下', canceled:'已取消'};
+function elapsed(t){ const s = Math.max(0, ((t.完成 ? new Date(t.完成) : new Date()) - new Date(t.创建)) / 1000 | 0); return `${s / 60 | 0}:${String(s % 60).padStart(2, '0')}`; }
+const vurl = f => `/api/file?p=${encodeURIComponent(f)}`;
+const vname = (t, f) => f ? f.split('/').pop() : `${t.前缀}_${t.简称}_${t.序号}`;
+// 收藏按文件记：一采、二采各自收藏（旧版整条收藏 = 收藏了成片）
+const favFiles = t => t.收藏文件 || (t.收藏 && t.视频 ? [t.视频] : []);
+const isFav = (t, f) => !!f && favFiles(t).includes(f);
+// 卡片当前显示哪一份：收藏页 = 收藏的那份；其他页 = 点过的那份，默认成片
+function shownFile(e){
+  if (e._file) return e._file;
+  const f = S.cardFile[e.id];
+  return f && (e.产出 || []).some(x => x.视频 === f) ? f : e.视频;
+}
+function galleryList(){
+  let list = S.tasks;
+  if (S.view === 'home') list = list.filter(t => !t.项目);
+  else if (S.view === 'project'){ const fam = famOf(S.pid); list = list.filter(t => fam.includes(t.项目)); }
+  else if (S.view === 'favs') list = list.flatMap(t => favFiles(t).map(f => ({...t, _file:f, _key:t.id + '|' + f})));
+  const f = S.galFilter;
+  if (f === 'done') list = list.filter(t => t.状态 === 'completed');
+  else if (f === 'run') list = list.filter(t => !DONE.includes(t.状态));
+  else if (f === 'bad') list = list.filter(t => ['failed', 'nsfw', 'canceled'].includes(t.状态));
+  else if (f.startsWith('m:')) list = list.filter(t => t.模型 === f.slice(2));
+  return list.map(t => t._key ? t : {...t, _key:t.id});
+}
+function taskSig(t){ return [t.状态, t.等待, t.视频, t.错误, t.提示, favFiles(t).join(','), shownFile(t), t.项目, (t.产出 || []).length, S.view].join('|'); }
+const canCancel = t => t.平台 === 'runninghub' ? ['uploading', 'queued', 'in_progress'].includes(t.状态) : t.状态 === 'queued';
+function taskHTML(t){
+  let vid; const file = shownFile(t), outs = t.产出 || [];
+  if (file && (t.状态 === 'completed' || !DONE.includes(t.状态) || outs.length)) vid = `<video src="${vurl(file)}#t=0.1" muted loop playsinline preload="metadata" data-open="${t.id}"></video><div class="play"><i>${I.playBig}</i></div>${t.状态 !== 'completed' ? `<span class="badge" style="left:auto;right:10px;top:auto;bottom:10px;color:var(--amber)">${esc(DONE.includes(t.状态) ? STATUS[t.状态] : (STATUS[t.状态] || t.状态) + ' · ' + elapsed(t))}${t.提示 ? ' · ' + esc(t.提示) : ''}</span>` : ''}`;
+  else if (['failed', 'nsfw', 'canceled'].includes(t.状态)) vid = `<div class="st err">${esc(STATUS[t.状态])}<br>${esc(typeof t.错误 === 'string' ? t.错误 : JSON.stringify(t.错误 || ''))}</div>`;
+  else vid = `<div class="st"><div class="spin"></div><span>${t.状态 === 'uploading' && t.等待 ? '本机排队' : (STATUS[t.状态] || t.状态)} · <span class="el">${elapsed(t)}</span></span>${t.提示 ? `<small style="color:var(--amber);padding:0 16px;text-align:center">${esc(t.提示)}</small>` : ''}</div>`;
+  const p = t.参数 || {};
+  const meta = [t.模型, t.方式, p.duration ? p.duration + 's' : '', p.resolution, p.aspect_ratio && showVal(p.aspect_ratio), t.估价 != null ? '约 $' + t.估价.toFixed(2) : '', (t.产出 || []).length ? '已下载 ' + t.产出.map(x => x.名称).join('、') : ''].filter(Boolean).join(' · ');
+  const showProj = S.view === 'gens' || S.view === 'favs';
+  const pj = t.项目 ? project(t.项目) : null;
+  return `<div class="vid">${vid}<span class="badge">${t.数量 > 1 ? `${t.序号}/${t.数量} · ` : ''}${new Date(t.创建).toLocaleString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>${t.演示 ? '<span class="badge demo">演示</span>' : ''}
+      ${file ? `<button class="fav ${isFav(t, file) ? 'on' : ''}" data-t="fav" title="${isFav(t, file) ? '取消收藏这一份' : '收藏这一份'}">${isFav(t, file) ? I.heartOn : I.heart}</button>` : ''}</div>
+    <div class="body"><div class="nm">${esc(vname(t, file))}</div>
+    ${outs.length && !t._file ? `<div class="outs">${outs.map(x => `<button data-t="show" data-f="${esc(x.视频)}" class="${x.视频 === file ? 'cur' : ''}" title="在卡片上看${esc(x.名称)}">${esc(x.名称)}<span class="h ${isFav(t, x.视频) ? 'on' : ''}" data-t="favf" data-f="${esc(x.视频)}" title="${isFav(t, x.视频) ? '取消收藏' : '收藏'}${esc(x.名称)}">${isFav(t, x.视频) ? '♥' : '♡'}</span></button>`).join('')}</div>` : ''}${showProj ? `<span class="ptag">${pj ? esc(pj.名称) : '不归项目'}</span>` : ''}<div class="meta">${esc(meta)}</div><div class="pr">${esc(p.prompt || '')}</div>
+    <div class="acts">${file ? '<button data-t="open">播放</button>' : ''}<button data-t="reuse">用这组设置</button>${DONE.includes(t.状态) ? '<button data-t="again" title="同一套设置和素材再交 1 条，种子随机（会先确认）">换种子再来</button>' : ''}${file ? '<button data-t="reveal">在文件夹里显示</button>' : ''}<button data-pop="move" data-k="${t.id}">移到项目</button>${canCancel(t) ? '<button data-t="cancel">取消</button>' : ''}${DONE.includes(t.状态) ? '<button data-t="remove" title="只从列表里拿掉，不删文件">从列表移除</button>' : ''}</div></div>`;
+}
+const railOn = () => composerOn();
+function renderGallery(){
+  const g = $('gallery'), all = galleryList();
+  const running = all.filter(t => !DONE.includes(t.状态)).length;
+  $('galN').textContent = all.length ? `${all.length} 条${running ? ` · 进行中 ${running}` : ''}` : '';
+  let list = all;
+  if (railOn()){
+    list = [...all.filter(t => !DONE.includes(t.状态)), ...all.filter(t => DONE.includes(t.状态))];
+    list = list.slice(0, Math.max(S.railN, running));
+  }
+  const more = $('railMore');
+  more.hidden = !railOn() || !all.length;
+  more.textContent = list.length < all.length ? `再显示 ${Math.min(30, all.length - list.length)} 条（共 ${all.length} 条）` : S.view === 'home' ? '所有项目的生成 → 我的生成' : '全部显示了';
+  more.dataset.m = list.length < all.length ? 'more' : 'gens';
+  if (!list.length){
+    const msg = {home:'首页的生成（不归项目）会显示在这里。', project:'这个项目还没有生成。在上面提交后，进度和成片都在这里。', favs:'还没有收藏。点视频右上角的心形就能收藏。', gens:'还没有生成。'}[S.view] || '';
+    g.innerHTML = `<div class="empty">${S.galFilter !== 'all' ? '没有符合筛选条件的。' : msg}</div>`; S.cards.clear(); return;
+  }
+  g.querySelector('.empty')?.remove();
+  const keep = new Set();
+  list.forEach((t, i) => {
+    keep.add(t._key);
+    let c = S.cards.get(t._key);
+    if (!c){ c = {el:document.createElement('div'), sig:''}; c.el.className = 'task'; c.el.dataset.id = t.id; c.el.dataset.key = t._key; S.cards.set(t._key, c); }
+    c.el.dataset.file = shownFile(t) || '';
+    const sig = taskSig(t);
+    if (sig !== c.sig){ c.el.innerHTML = taskHTML(t); c.sig = sig; }
+    else { const el = c.el.querySelector('.el'); if (el) el.textContent = elapsed(t); }
+    if (g.children[i] !== c.el) g.insertBefore(c.el, g.children[i] || null);
+  });
+  for (const [id, c] of S.cards) if (!keep.has(id)){ c.el.remove(); S.cards.delete(id); }
+}
+// 卡片：鼠标移上去静音预览，点视频开大窗口
+$('gallery').addEventListener('mouseover', e => { const v = e.target.closest('video'); if (v && v.paused) v.play().catch(() => {}); });
+$('gallery').addEventListener('mouseout', e => { const v = e.target.closest('video'); if (v && !v.contains(e.relatedTarget)) v.pause(); });
+$('gallery').addEventListener('click', async e => {
+  const card = e.target.closest('.task'); if (!card) return;
+  const v = e.target.closest('video[data-open]');
+  if (v) return openLB(card.dataset.id, card.dataset.file, card.dataset.key);
+  const b = e.target.closest('[data-t]'); if (!b) return;
+  e.stopPropagation();
+  const t = S.tasks.find(x => x.id === card.dataset.id); if (!t) return;
+  if (b.dataset.t === 'show'){ S.cardFile[t.id] = b.dataset.f; renderGallery(); return; }
+  if (b.dataset.t === 'open') return openLB(t.id, card.dataset.file, card.dataset.key);
+  try { await taskAction(b.dataset.t === 'favf' ? 'fav' : b.dataset.t, t, b.dataset.f || card.dataset.file); } catch (err){ toast(err.message, true); }
+});
+$('railMore').onclick = () => { if ($('railMore').dataset.m === 'more'){ S.railN += 30; renderGallery(); } else if (S.view === 'home') location.hash = '#/gens'; };
+async function taskAction(what, t, file){
+  file = file || t.视频;
+  if (what === 'open') openLB(t.id, file);
+  else if (what === 'reveal') await api('/api/reveal', {p:file});
+  else if (what === 'fav'){
+    if (!file) return;
+    const on = !isFav(t, file);
+    await api(`/api/tasks/${t.id}/fav`, {文件:file, 收藏:on});
+    t.收藏文件 = favFiles(t).filter(x => x !== file).concat(on ? [file] : []); t.收藏 = t.收藏文件.length > 0;
+    renderGallery(); renderCounts(); if (S.lb) renderLB();
+    const out = (t.产出 || []).find(x => x.视频 === file);
+    toast(`${on ? '已收藏' : '已取消收藏'}${out ? out.名称 : ''}`);
+  }
+  else if (what === 'again') await again(t);
+  else if (what === 'cancel'){
+    if (t.平台 === 'runninghub'){
+      const got = (t.产出 || []).map(x => x.名称).join('、');
+      const ok = await confirmBox('取消这条任务', `取消后 RunningHub 上这条任务就没了，<b>还没下载的那一采拿不到</b>${got ? `（已下载：${esc(got)}，不受影响）` : ''}。<br>已经跑掉的机器时长照样扣。`, '取消任务', true);
+      if (!ok) return;
+    }
+    await api(`/api/tasks/${t.id}/cancel`, {}); pollTasks();
+  }
+  else if (what === 'remove'){ await api(`/api/tasks/${t.id}/remove`, {}); pollTasks(); }
+  else if (what === 'reuse'){
+    closeLB();
+    location.hash = t.项目 && project(t.项目) ? '#/p/' + t.项目 : '#/home';
+    await route();
+    await loadForm(t.表单); window.scrollTo({top:0, behavior:'smooth'}); toast('已经把这组设置放回生成框');
+  }
+}
+// 换种子再来一条：同一套设置和素材，直接再交一条（不动生成框里正在写的东西）
+async function again(t){
+  const w = wayOf(t.endpoint); if (!w) throw new Error('这条用的工作流已经不在工作流库里了，用「用这组设置」换一个再交');
+  const p = {...t.参数};
+  if ('种子' in p) p.种子 = ''; delete p.seed;
+  const form = t.表单 ? JSON.parse(JSON.stringify(t.表单)) : null;
+  for (const pp of Object.values((form && form.paramsBy) || {})){ if ('种子' in pp) pp.种子 = ''; delete pp.seed; }
+  const rhx = t.平台 === 'runninghub', pid = t.项目 && project(t.项目) ? t.项目 : null;
+  const ok = await confirmBox('换种子再来一条', `用「${esc(vname(t, t.视频))}」的同一套设置、同样的素材，再交 <b>1 条</b>到 ${rhx ? 'RunningHub' : 'Higgsfield'}，种子随机。<br>
+    项目：${pid ? esc(project(pid).名称) : '不归项目（首页）'}<br>存到：${esc(t.输出目录)}<br>预计：<b style="color:var(--lime)">${rhx ? '按机器运行时长扣 RH 币' : t.估价 != null ? '约 $' + t.估价.toFixed(2) : '—'}</b>${S.st.演示 ? '（演示，不扣费）' : ''}`, S.st.演示 ? '提交（演示）' : '确认提交，会扣费');
+  if (!ok) return;
+  await api('/api/submit', {endpoint:t.endpoint, 参数:p, 素材:t.素材, 数量:1, 前缀:t.前缀, 输出目录:t.输出目录, 项目:pid, 估价:t.估价 ?? null, 表单:form});
+  toast('已再交 1 条，种子随机'); pollTasks();
+}
+function popMove(anchor, tid){
+  const t = S.tasks.find(x => x.id === tid); if (!t) return;
+  const h = `<div class="hd">移到哪个项目（只改归属，不动文件）</div><button class="it ${!t.项目 ? 'on' : ''}" data-v="">不归项目（首页）</button>` +
+    S.projects.map(p => `<button class="it ${t.项目 === p.id ? 'on' : ''}" data-v="${p.id}">${I.folderSm}${esc(p.名称)}</button>`).join('');
+  openPop(anchor, h, async pid => { closePop(); try { await api(`/api/tasks/${tid}/move`, {项目:pid || null}); await pollTasks(); renderProjects(); } catch (err){ toast(err.message, true); } });
+}
+async function pollTasks(){
+  try {
+    const prevN = S.tasks.length;
+    S.tasks = await api('/api/tasks');
+    const st = Object.fromEntries(S.tasks.map(t => [t.id, t.状态]));
+    if (S.lastSt && document.hidden) S.unseen += S.tasks.filter(t => t.状态 === 'completed' && S.lastSt[t.id] && S.lastSt[t.id] !== 'completed').length;
+    S.lastSt = st; updateTitle();
+    if (S.view !== 'elements') renderGallery(); else if (S.tasks.length !== prevN) renderElems();
+    renderCounts(); renderProjects(); if (S.lb) syncLB();
+    if (S.view === 'project'){ const el = document.querySelector('.pstats'), h = projStats(S.pid); if (el){ if (el.outerHTML !== h) el.outerHTML = h; } else if (h) $('viewHead').insertAdjacentHTML('beforeend', h); }
+    renderGuide();
+  } catch {}
+}
+function updateTitle(){
+  const run = S.tasks.filter(t => !DONE.includes(t.状态)).length;
+  document.title = (S.unseen ? `✓ ${S.unseen} 条完成 · ` : run ? `（${run} 条在跑）` : '') + 'MiniMax H3 工作台';
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden){ S.unseen = 0; updateTitle(); } });
+
+// ---------- 播放器 ----------
+function lbList(){ const l = galleryList().filter(t => shownFile(t)); return l.length ? l : S.tasks.filter(t => t.视频).map(t => ({...t, _key:t.id})); }
+function openLB(id, file, key){
+  if (!S.lb){
+    const el = document.createElement('div'); el.className = 'lb';
+    el.innerHTML = `<div class="lb-stage"><button class="lb-nav prev" data-lb="prev">${I.left}</button><div class="lb-v"></div><button class="lb-nav next" data-lb="next">${I.right}</button></div><aside class="lb-info"></aside>`;
+    document.body.appendChild(el); document.body.style.overflow = 'hidden';
+    el.addEventListener('click', async e => {
+      const n = e.target.closest('[data-lb]'); if (n){ step(n.dataset.lb === 'next' ? 1 : -1); return; }
+      const pv = e.target.closest('[data-pv]'); if (pv){ S.lb.file = pv.dataset.pv; S.lb.cmp = false; renderLB(); return; }
+      if (e.target.closest('[data-x=cmp]')){ S.lb.cmp = !S.lb.cmp; renderLB(); return; }
+      const b = e.target.closest('[data-t]');
+      if (b){ const t = S.tasks.find(x => x.id === S.lb.id); try { await taskAction(b.dataset.t, t, lbFile(t)); } catch (err){ toast(err.message, true); } return; }
+      if (e.target.closest('[data-x=close]') || e.target === el.querySelector('.lb-stage') || e.target === el.querySelector('.lb-v')) closeLB();
+      if (e.target.closest('[data-x=copy]')){ const t = S.tasks.find(x => x.id === S.lb.id); navigator.clipboard.writeText(t.参数.prompt || '').then(() => toast('提示词已复制')); }
+    });
+    S.lb = {el, id:null, cmp:false};
+  }
+  S.lb.file = file || null; S.lb.key = key || id;
+  S.lb.id = id; renderLB();
+}
+function lbFile(t){ return S.lb.file && (S.lb.file === t.视频 || (t.产出 || []).some(x => x.视频 === S.lb.file)) ? S.lb.file : t.视频; }
+// 并排对比：右边跟着左边播放、暂停、拖进度
+function syncPair(a, b, at){
+  a.onloadedmetadata = () => { if (at) a.currentTime = Math.min(at, a.duration || at); a.play().catch(() => {}); };
+  a.onplay = () => b.play().catch(() => {}); a.onpause = () => b.pause();
+  a.onseeking = a.onseeked = () => { b.currentTime = a.currentTime; };
+  a.ontimeupdate = () => { if (Math.abs(b.currentTime - a.currentTime) > 0.1) b.currentTime = a.currentTime; };
+}
+function renderLB(){
+  const t = S.tasks.find(x => x.id === S.lb.id); if (!t) return closeLB();
+  const el = S.lb.el, box = el.querySelector('.lb-v');
+  const outs = t.产出 || [];
+  const cur = lbFile(t);
+  const cmp = S.lb.cmp && outs.length >= 2;
+  const want = cmp ? 'cmp:' + outs.map(x => x.视频).join('|') : 'one:' + cur;
+  if (box.dataset.k !== want){
+    const old = box.querySelector('video'), at = old && box.dataset.id === t.id ? old.currentTime : 0;
+    box.dataset.k = want; box.dataset.id = t.id; box.className = 'lb-v' + (cmp ? ' cmp' : '');
+    if (cmp){
+      const pair = [outs[0], outs[outs.length - 1]];
+      box.innerHTML = pair.map((x, j) => `<figure><video ${j ? 'muted' : 'controls'} loop playsinline src="${vurl(x.视频)}"></video><figcaption>${esc(x.名称)}${isFav(t, x.视频) ? ' ♥' : ''}${j ? '（跟着左边播）' : ''}</figcaption></figure>`).join('');
+      const [va, vb] = box.querySelectorAll('video'); syncPair(va, vb, at);
+    } else {
+      box.innerHTML = `<video controls autoplay loop playsinline src="${vurl(cur)}"></video>`;
+      const v = box.querySelector('video'); v.onloadedmetadata = () => { if (at) v.currentTime = Math.min(at, v.duration || at); }; v.play().catch(() => {});
+    }
+  }
+  const list = lbList(); let i = list.findIndex(x => x._key === S.lb.key); if (i < 0) i = list.findIndex(x => x.id === t.id);
+  el.querySelector('.prev').disabled = i <= 0; el.querySelector('.next').disabled = i < 0 || i >= list.length - 1;
+  const p = t.参数 || {}, pj = t.项目 ? project(t.项目) : null;
+  const tw = wayOf(t.endpoint), over = (tw && tw.字段名) || {};
+  const names = Object.entries(t.素材 || {}).map(([k, ids]) => `${over[k] || FIELDNAME[k] || k}：${ids.map(id => esc((S.assets[id] || {}).名字 || id)).join('、')}`).join('<br>');
+  el.querySelector('.lb-info').innerHTML = `
+    <div class="top2"><span class="small">${i >= 0 ? `${i + 1} / ${list.length}` : ''}</span><div class="sp"></div><button class="iconbtn" data-x="close" title="关闭（Esc）">${I.close}</button></div>
+    <h3>${esc(cur.split('/').pop())}</h3>
+    ${outs.length > 1 || (outs.length && !DONE.includes(t.状态)) ? `<div class="btns">${outs.map(x => `<button data-pv="${esc(x.视频)}" class="${x.视频 === cur && !cmp ? 'on' : ''}" style="${x.视频 === cur && !cmp ? 'color:var(--lime)' : ''}">${isFav(t, x.视频) ? '<span style="color:var(--pink)">♥</span> ' : ''}${esc(x.名称)}</button>`).join('')}${outs.length >= 2 ? `<button data-x="cmp" style="${cmp ? 'color:var(--lime)' : ''}">${cmp ? '退出对比' : '并排对比'}</button>` : ''}${!DONE.includes(t.状态) ? `<span class="small" style="align-self:center">${esc(STATUS[t.状态] || '')}…</span>` : ''}</div>` : ''}
+    <div class="btns"><button data-t="fav" class="${isFav(t, cur) ? 'on' : ''}">${isFav(t, cur) ? '♥ 已收藏' : '♡ 收藏'}${outs.length > 1 ? (outs.find(x => x.视频 === cur) || {}).名称 || '' : ''}</button><button data-t="reuse">用这组设置</button>${DONE.includes(t.状态) ? '<button data-t="again">换种子再来</button>' : ''}<button data-t="reveal">在文件夹里显示</button></div>
+    <div class="kv"><div>项目</div><div>${pj ? esc(pj.名称) : '不归项目'}</div><div>模型</div><div>${esc(t.模型)} · ${esc(t.方式)}</div>
+      ${paramText(p, tw)}${t.平台 === 'runninghub' ? `<div>种子</div><div>${esc(t.种子 ?? '—')}</div>${outs.length ? `<div>平台耗时</div><div>${outs.map(x => `${esc(x.名称)} ${x.耗时 ? esc(x.耗时) + ' 秒' : '—'}`).join('<br>')}</div>` : ''}` : `<div>估价</div><div>${t.估价 != null ? '约 $' + t.估价.toFixed(2) : '—'}</div>`}<div>时间</div><div>${new Date(t.创建).toLocaleString('zh-CN')}</div>
+      ${names ? `<div>素材</div><div>${names}</div>` : ''}</div>
+    <div><div class="small" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">提示词<button class="ghost" style="padding:2px 8px;font-size:12px" data-x="copy">复制</button></div><div class="pp">${esc(p.prompt || '（无）')}</div></div>
+    <div class="small">← → 切换　空格 播放/暂停　F 收藏当前这一份　Esc 关闭${t.request_id ? `<br>${t.平台 === 'runninghub' ? 'taskId' : 'request_id'}：${esc(t.request_id)}` : ''}</div>`;
+}
+function wayOf(ep){ for (const m of S.cfg.models) for (const w of m.方式) if (w.endpoint === ep) return w; return null; }
+function paramText(p, tw){
+  const props = ((tw && tw.参数表) || {}).schema?.properties || {};
+  return Object.entries(p).filter(([k, v]) => k !== 'prompt' && v !== '').map(([k, v]) => `<div>${esc((props[k] || {}).title || KEYNAME[k] || k)}</div><div>${esc(k === 'duration' ? v + ' 秒' : typeof v === 'boolean' ? (v ? '开' : '关') : showVal(v))}</div>`).join('');
+}
+function syncLB(){
+  if (!S.lb) return;
+  const t = S.tasks.find(x => x.id === S.lb.id); if (!t) return closeLB();
+  const sig = taskSig(t); if (S.lb.sig !== sig){ S.lb.sig = sig; renderLB(); }  // 一采、二采陆续下载时更新按钮
+}
+function step(d){ const list = lbList(), i = list.findIndex(x => x._key === S.lb.key); const n = list[i + d]; if (n){ S.lb.id = n.id; S.lb.key = n._key; S.lb.file = shownFile(n); S.lb.cmp = false; renderLB(); } }
+function closeLB(){ if (S.lb){ S.lb.el.remove(); S.lb = null; document.body.style.overflow = ''; } }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ closePop(); document.querySelector('.modal-bg')?.remove(); closeLB(); return; }
+  if (!S.lb || e.target.matches('input,textarea')) return;
+  const v = S.lb.el.querySelector('video');
+  if (e.key === 'ArrowRight'){ e.preventDefault(); step(1); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); step(-1); }
+  else if (e.key === ' ' && document.activeElement !== v){ e.preventDefault(); v.paused ? v.play() : v.pause(); }
+  else if (e.key === 'f' || e.key === 'F'){ const t = S.tasks.find(x => x.id === S.lb.id); taskAction('fav', t, lbFile(t)).catch(err => toast(err.message, true)); }
+});
+
+// ---------- 我的元素 ----------
+async function loadLib(){ try { S.lib = await api('/api/assets'); for (const a of S.lib) S.assets[a.id] = a; renderElems(); renderCounts(); } catch (err){ toast(err.message, true); } }
+// 生成框还没载入过（直接打开「我的元素」时）先载入上次那个生成框的草稿
+async function ensureComposer(){ if (S.ctx === undefined){ S.ctx = null; await loadDraft(); } }
+const composerName = () => S.ctx ? (project(S.ctx) || {}).名称 || '项目' : '首页';
+function renderElBar(){
+  const n = S.elSel.size, back = S.lastComposer || '#/home';
+  $('elBar').innerHTML = `<span>点缩略图可以多选，一次放进生成框（放进「${esc(composerName())}」的生成框，不跳页）</span><div class="sp"></div>
+    ${n ? `<span>已选 ${n} 个</span><button class="go" data-eb="put">放进生成框</button><button class="ghost" data-eb="clear">取消选择</button>` : ''}<a href="${esc(back)}">回到生成框 →</a>`;
+}
+function renderElems(){
+  if (S.view !== 'elements') return;
+  renderElBar();
+  const u = usage();
+  const list = S.lib.filter(a => S.elFilter === 'all' || a.类型 === S.elFilter);
+  const pend = S.pending.filter(p => p.lib).map(p => `<div class="el"><div class="th">${p.pct < 1 ? Math.round(p.pct * 100) + '%' : '转换中…'}</div><div class="b"><div class="nm">${esc(p.name)}</div></div></div>`).join('');
+  $('elems').innerHTML = pend + (list.length ? list.map(a => {
+    const th = a.类型 === 'audio' ? I.audio : a.缩略图 ? `<img src="/api/file?p=${encodeURIComponent(a.缩略图)}" alt="" loading="lazy">` : esc(a.名字);
+    const mt = [KINDNAME[a.类型], a.宽 ? `${a.宽}×${a.高}` : '', a.秒 && a.类型 !== 'image' ? a.秒.toFixed(1) + 's' : '', a.大小 ? (a.大小 / 1048576).toFixed(1) + ' MB' : ''].filter(Boolean).join(' · ');
+    const x = u[a.id], tag = S.ctx !== undefined && assignedTag(a.id), sel = S.elSel.has(a.id);
+    return `<div class="el ${sel ? 'picked' : ''}" data-id="${a.id}"><div class="th" data-e="sel" title="点一下选中，可以多选">${th}<span class="k">${KINDNAME[a.类型]}</span><span class="sel">${sel ? '✓' : ''}</span></div><div class="b"><div class="nm" title="${esc(a.名字)}">${esc(a.名字)}</div><div class="mt">${esc(mt)}</div>
+      <div class="mt" title="${x ? esc(x.who.join('、')) : ''}">${x ? `用过 ${x.n} 次 · 最近 ${esc(x.who[0])}` : '还没用过'}</div>
+      ${tag ? `<div class="placed">已在生成框：${esc(tag)}</div>` : ''}
+      <div class="acts">${tag ? '<button data-e="take">拿掉</button>' : '<button class="go" data-e="use">放进生成框</button>'}<button data-e="del">删除</button></div></div></div>`;
+  }).join('') : (pend ? '' : '<div class="empty">素材库是空的。在生成框里拖进来的素材也会存到这里。</div>'));
+}
+$('elems').addEventListener('click', async e => {
+  const b = e.target.closest('[data-e]'); if (!b) return;
+  const id = b.closest('.el').dataset.id, a = S.assets[id];
+  if (b.dataset.e === 'sel'){ S.elSel.has(id) ? S.elSel.delete(id) : S.elSel.add(id); renderElems(); }
+  else if (b.dataset.e === 'use'){
+    await ensureComposer();
+    const tag = putAsset(id, null, true);
+    toast(tag ? `已放进「${composerName()}」的生成框：${a.名字} → ${tag}` : `${a.名字}：这个工作流没有空的${KINDNAME[a.类型]}格子`, !tag);
+    renderElems();
+  } else if (b.dataset.e === 'take'){ unassign(id); renderComposer(); saveDraft(); renderElems(); }
+  else if (b.dataset.e === 'del'){
+    if (!await confirmBox('删除素材', `从素材库删掉「${esc(a.名字)}」？<br>只删窗口缓存里的这一份（_缓存/素材），你原来的文件不动；已经生成的视频也不受影响。`, '删除', true)) return;
+    try { await api(`/api/assets/${id}/delete`, {}); unassign(id); delete S.assets[id]; loadLib(); } catch (err){ toast(err.message, true); }
+  }
+});
+$('elBar').addEventListener('click', async e => {
+  const b = e.target.closest('[data-eb]'); if (!b) return;
+  if (b.dataset.eb === 'clear'){ S.elSel.clear(); renderElems(); return; }
+  await ensureComposer();
+  const ok = [], bad = [];
+  for (const id of S.lib.map(a => a.id).filter(id => S.elSel.has(id)).reverse()){ const tag = putAsset(id, null, true); (tag ? ok : bad).push(tag || S.assets[id].名字); }
+  S.elSel.clear(); renderElems();
+  toast(`已放进「${composerName()}」的生成框：${ok.join(' ') || '无'}${bad.length ? `；没有空格子：${bad.join('、')}` : ''}`, bad.length > 0);
+});
+$('elDrop').onclick = () => { pickTarget = null; pickLib = true; $('fileIn').click(); };
+
+// ---------- 项目 ----------
+async function loadProjects(){ S.projects = await api('/api/projects'); renderProjects(); renderGuide(); }
+function renderProjects(force){
+  if (S.newIn && !force && $('projList').querySelector('.pjnew input')) return;  // 正在起名（可能在用输入法）：别重画
+  const q = ($('projSearch').value || '').trim().toLowerCase();
+  const sort = l => S.projSort === 'name' ? l.sort((a, b) => a.名称.localeCompare(b.名称, 'zh-CN', {numeric:true})) : l.sort((a, b) => b.创建.localeCompare(a.创建));
+  let shut = []; try { shut = JSON.parse(localStorage.getItem('h3-proj-shut') || '[]'); } catch {}
+  const rows = [];
+  const walk = (parent, lv) => sort(kidsOf(parent)).forEach(p => { const kids = kidsOf(p.id).length; rows.push([p, lv, kids]); if (kids && !shut.includes(p.id)) walk(p.id, lv + 1); });
+  const ni = S.newIn, old = $('projList').querySelector('.pjnew input'), keep = old ? old.value : '';
+  if (ni && ni.parent) shut = shut.filter(x => x !== ni.parent);
+  if (q && !ni) S.projects.filter(p => p.名称.toLowerCase().includes(q)).forEach(p => rows.push([p, 0, 0, pathOf(p.id).slice(0, -1).map(x => x.名称).join(' / ')]));
+  else {
+    if (ni && !ni.parent) rows.push([null, 0]);
+    const walk2 = (parent, lv) => sort(kidsOf(parent)).forEach(p => { const kids = kidsOf(p.id).length, here = ni && ni.parent === p.id; rows.push([p, lv, kids || here]); if (here) rows.push([null, lv + 1]); if (kids && !shut.includes(p.id)) walk2(p.id, lv + 1); });
+    walk2(null, 0);
+  }
+  $('projList').innerHTML = rows.map(([p, lv, kids, where]) => {
+    if (!p) return `<div class="ni pj pjnew" style="padding-left:${10 + lv * 18}px"><span class="tw none">${I.chev}</span><span class="t proj" style="--fc:${PCOLOR[ni.color][1]}">${I.folderSm}</span>
+      <div class="pjn"><input placeholder="${ni.parent ? '子文件夹名，回车创建' : '项目名，回车创建'}" maxlength="60"><div class="dots">${colorDots(ni.color)}</div></div></div>`;
+    const fam = famOf(p.id), n = S.tasks.filter(t => fam.includes(t.项目)).length, open = !shut.includes(p.id);
+    return `<a class="ni pj ${S.view === 'project' && S.pid === p.id ? 'on' : ''}" href="#/p/${p.id}" draggable="true" data-pid="${p.id}" style="padding-left:${10 + lv * 18}px" title="${esc(pathOf(p.id).map(x => x.名称).join(' / '))}">
+      <span class="tw ${kids ? '' : 'none'} ${open ? 'open' : ''}" data-tw="${p.id}">${I.chev}</span><span class="t proj" style="--fc:${pcolor(p)}">${I.folderSm}</span>
+      <span class="pn">${esc(p.名称)}${where ? `<small>${esc(where)}</small>` : ''}</span><span class="cnt">${n || ''}</span><button class="more" data-pop="proj" data-k="${p.id}" title="更多">${I.dots}</button></a>`;
+  }).join('') || (q ? '<div class="small" style="color:var(--tx3);padding:4px 12px;font-size:13px">没有找到</div>' : '');
+  const inp = $('projList').querySelector('.pjnew input');
+  if (inp){ inp.value = keep; inp.focus(); inp.scrollIntoView({block:'nearest'}); }
+}
+// 文件夹颜色：和 Higgsfield 的选项一样
+const PCOLOR = {lime:['青柠色', '#d1fe17'], cyan:['青色', '#53eafd'], slate:['石板灰', '#e2e8f0'], violet:['紫罗兰色', '#a686ff'], purple:['紫色', '#bf7eff'], pink:['粉色', '#fb64b6'], yellow:['黄色', '#fff085']};
+const pcolor = p => (PCOLOR[p && p.颜色] || PCOLOR.slate)[1];
+const colorDots = cur => Object.entries(PCOLOR).map(([k, [name, hex]]) => `<i class="cdot ${k === cur ? 'on' : ''}" data-color="${k}" title="${name}" style="background:${hex}"></i>`).join('');
+// 新建：在上一级文件夹下面就地出现一行，直接起名
+function newProjectIn(parent){
+  const up = parent ? project(parent) : null;
+  S.newIn = {parent:parent || null, color:(up && up.颜色) || 'lime'};
+  renderProjects(true);
+}
+function cancelNew(){ if (S.newIn){ S.newIn = null; renderProjects(); } }
+async function commitNew(){
+  const ni = S.newIn, inp = $('projList').querySelector('.pjnew input'); if (!ni || !inp) return;
+  if (!inp.value.trim()) return cancelNew();
+  try { const p = await api('/api/projects', {名称:inp.value, 上级:ni.parent, 颜色:ni.color}); S.newIn = null; await loadProjects(); location.hash = '#/p/' + p.id; }
+  catch (err){ toast(err.message, true); inp.focus(); }
+}
+$('projList').addEventListener('keydown', e => { if (!e.target.closest('.pjnew')) return; if (e.key === 'Enter'){ e.preventDefault(); commitNew(); } else if (e.key === 'Escape') cancelNew(); });
+$('projList').addEventListener('mousedown', e => { const d = e.target.closest('.pjnew .cdot'); if (!d) return; e.preventDefault(); S.newIn.color = d.dataset.color; renderProjects(true); });
+$('projList').addEventListener('focusout', e => { if (!e.target.closest('.pjnew')) return; setTimeout(() => { const i = $('projList').querySelector('.pjnew input'); if (S.newIn && i && document.activeElement !== i && !i.value.trim()) cancelNew(); }, 150); });
+$('projList').addEventListener('click', e => {
+  const tw = e.target.closest('[data-tw]'); if (!tw || tw.classList.contains('none')) return;
+  e.preventDefault();
+  let shut = []; try { shut = JSON.parse(localStorage.getItem('h3-proj-shut') || '[]'); } catch {}
+  const id = tw.dataset.tw; shut = shut.includes(id) ? shut.filter(x => x !== id) : [...shut, id];
+  try { localStorage.setItem('h3-proj-shut', JSON.stringify(shut)); } catch {}
+  renderProjects();
+});
+// 拖项目：拖到另一个项目上 = 放进它里面；拖到「项目」标题上 = 回到顶层
+let dragProj = null;
+$('projList').addEventListener('dragstart', e => { const a = e.target.closest('.pj'); if (!a) return; dragProj = a.dataset.pid; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', a.dataset.pid); });
+document.addEventListener('dragend', () => { dragProj = null; document.querySelectorAll('.pj.drop,.sec.drop').forEach(x => x.classList.remove('drop')); });
+const projDropTarget = e => dragProj ? (e.target.closest('.pj') || e.target.closest('.nav .sec')) : null;
+document.querySelector('.nav').addEventListener('dragover', e => { const t = projDropTarget(e); if (!t || t.dataset.pid === dragProj) return; e.preventDefault(); document.querySelectorAll('.pj.drop,.sec.drop').forEach(x => x !== t && x.classList.remove('drop')); t.classList.add('drop'); });
+document.querySelector('.nav').addEventListener('drop', async e => {
+  const t = projDropTarget(e); if (!t) return; e.preventDefault();
+  const id = dragProj, to = t.dataset.pid || null; dragProj = null;
+  if (to === id || (project(id).上级 || null) === to) return;
+  await moveProject(id, to);
+});
+async function moveProject(id, to){
+  try {
+    await api('/api/projects/' + id, {上级:to});
+    if (to){ try { const shut = JSON.parse(localStorage.getItem('h3-proj-shut') || '[]').filter(x => x !== to); localStorage.setItem('h3-proj-shut', JSON.stringify(shut)); } catch {} }
+    await loadProjects(); renderHead(); renderGallery();
+    toast(to ? `「${project(id).名称}」放进了「${project(to).名称}」` : `「${project(id).名称}」移到了顶层`);
+  } catch (err){ toast(err.message, true); }
+}
+function popProject(anchor, pid){
+  const p = project(pid); if (!p) return;
+  const deep = pathOf(pid).length;
+  const pp = openPop(anchor, `<div class="hd">颜色</div><div class="dots" style="padding:2px 12px 10px">${colorDots(p.颜色 || 'slate')}</div>${deep < 4 ? '<button class="it" data-v="sub">在里面新建文件夹</button>' : ''}${p.上级 ? '<button class="it" data-v="top">移到顶层</button>' : ''}<button class="it" data-v="rename">重命名</button><button class="it" data-v="folder">打开出片文件夹</button><button class="it danger" data-v="del">删除项目</button>`, async v => {
+    closePop();
+    if (v === 'rename'){ location.hash = '#/p/' + pid; await route(); startRename(); }
+    else if (v === 'sub') newProjectIn(pid);
+    else if (v === 'top') moveProject(pid, null);
+    else if (v === 'folder') api('/api/reveal', {p:p.输出目录}).catch(err => toast(err.message, true));
+    else if (v === 'del') deleteProject(pid);
+  });
+  pp.addEventListener('click', async e => {
+    const d = e.target.closest('.cdot'); if (!d) return;
+    try { await api('/api/projects/' + pid, {颜色:d.dataset.color}); closePop(); await loadProjects(); renderHead(); } catch (err){ toast(err.message, true); }
+  });
+}
+document.querySelector('.nav').addEventListener('click', e => { if (e.target.closest('.more')){ e.preventDefault(); } });
+async function deleteProject(pid){
+  const p = project(pid), n = S.tasks.filter(t => t.项目 === pid).length, kids = kidsOf(pid).length;
+  if (!await confirmBox('删除项目', `删除项目「${esc(p.名称)}」？<br>只删项目记录。${kids ? `里面的 ${kids} 个子项目会升一级，不会被删。` : ''}出片文件夹和里面的视频<b>都不动</b>；这个项目的 ${n} 条生成会移到「首页（不归项目）」。`, '删除项目', true)) return;
+  try { await api(`/api/projects/${pid}/delete`, {}); try { localStorage.removeItem('hf-draft:' + pid); } catch {} await loadProjects(); await pollTasks(); if (S.pid === pid) location.hash = '#/home'; }
+  catch (err){ toast(err.message, true); }
+}
+$('projNewBtn').onclick = () => newProjectIn(null);
+$('projSearchBtn').onclick = () => { const i = $('projSearch'); i.hidden = !i.hidden; $('projSearchBtn').classList.toggle('on', !i.hidden); if (!i.hidden) i.focus(); else { i.value = ''; renderProjects(); } };
+$('projSearch').oninput = renderProjects;
+$('projSortBtn').onclick = () => { S.projSort = S.projSort === 'new' ? 'name' : 'new'; toast(S.projSort === 'name' ? '项目按名称排' : '项目按新建时间排'); renderProjects(); };
+function startRename(){
+  const p = project(S.pid), h = document.querySelector('#viewHead h1'); if (!p || !h) return;
+  h.innerHTML = `<input value="${esc(p.名称)}">`;
+  const i = h.querySelector('input'); i.focus(); i.select();
+  const done = async save => {
+    i.onblur = null;
+    if (save && i.value.trim() && i.value.trim() !== p.名称){ try { await api('/api/projects/' + p.id, {名称:i.value}); await loadProjects(); } catch (err){ toast(err.message, true); } }
+    renderHead();
+  };
+  i.onkeydown = e => { if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); };
+  i.onblur = () => done(true);
+}
+
+// ---------- 页面 ----------
+function projStats(pid){
+  const fam = famOf(pid), ts = S.tasks.filter(t => fam.includes(t.项目) && !t.演示 === !S.st.演示);
+  if (!ts.length) return '';
+  const ok = ts.filter(t => t.状态 === 'completed'), bad = ts.filter(t => t.状态 === 'failed' || t.状态 === 'nsfw'), stop = ts.filter(t => t.状态 === 'canceled'), run = ts.length - ok.length - bad.length - stop.length;
+  const mins = ok.map(t => (new Date(t.完成) - new Date(t.创建)) / 60000).filter(x => x > 0), avg = mins.length ? mins.reduce((a, b) => a + b, 0) / mins.length : 0;
+  const plat = ts.reduce((n, t) => n + Math.max(0, ...(t.产出 || []).map(x => +x.耗时 || 0)), 0);
+  const favs = ts.reduce((n, t) => n + favFiles(t).length, 0);
+  const cell = (k, v) => `<div><b>${v}</b><span>${k}</span></div>`;
+  return `<div class="pstats">${cell('条生成', ts.length)}${cell('完成', ok.length)}${run ? cell('进行中', run) : ''}${bad.length ? cell('失败', bad.length) : ''}${stop.length ? cell('取消', stop.length) : ''}${avg ? cell('平均出片', avg < 60 ? avg.toFixed(1) + ' 分钟' : (avg / 60).toFixed(1) + ' 小时') : ''}${plat ? cell('平台运行合计', plat < 3600 ? Math.round(plat / 60) + ' 分钟' : (plat / 3600).toFixed(1) + ' 小时') : ''}${favs ? cell('收藏', favs) : ''}</div>`;
+}
+function renderHead(){
+  const h = $('viewHead'), dirBtn = `<button class="ghost" data-h="folder">打开出片文件夹</button>`;
+  if (S.view === 'home') h.innerHTML = `<div class="hero"><h1>让你的故事动起来</h1><p>这里的生成不归任何项目；要分开管理，就在左边新建项目</p></div>`;
+  else if (S.view === 'project'){
+    const p = project(S.pid);
+    h.innerHTML = p ? `<div class="vh"><h1 title="点击重命名" style="cursor:text">${esc(p.名称)}</h1><span class="sub">${pathOf(p.id).length > 1 ? esc(pathOf(p.id).slice(0, -1).map(x => x.名称).join(" / ")) + " / · " : ""}${kidsOf(p.id).length ? "含子项目的生成 · " : ""}出片到 ${esc(p.输出目录)}</span><div class="sp"></div><div class="acts">${dirBtn}<button class="ghost" data-h="rename">重命名</button><button class="ghost" data-h="del">删除项目</button></div></div>${projStats(p.id)}` : '';
+  }
+  else h.innerHTML = `<div class="vh"><h1>${{gens:'我的生成', elements:'我的元素', favs:'我的收藏', workflows:'工作流'}[S.view]}</h1><span class="sub">${{gens:'所有项目的全部生成', elements:'拖进来过的图片、视频、音频；点「放进生成框」再用', favs:'点过心形的视频（一采、二采各自收藏）', workflows:'存下常用的工作流 ID，生成时在「工作流」卡片里选'}[S.view]}</span>${S.view === 'gens' || S.view === 'elements' ? '<div class="acts" style="margin-left:auto"><button class="ghost" data-h="clear">清空列表</button></div>' : ''}</div>`;
+}
+$('viewHead').addEventListener('click', e => {
+  const b = e.target.closest('[data-h]');
+  if (!b){ if (S.view === 'project' && e.target.tagName === 'H1') startRename(); return; }
+  if (b.dataset.h === 'clear') return clearList();
+  if (b.dataset.h === 'rename') startRename();
+  else if (b.dataset.h === 'del') deleteProject(S.pid);
+  else if (b.dataset.h === 'folder') api('/api/reveal', {p:project(S.pid).输出目录}).catch(err => toast(err.message, true));
+});
+async function clearList(){
+  try {
+    if (S.view === 'gens'){
+      const mine = S.tasks.filter(t => !t.演示 === !S.st.演示), done = mine.filter(t => ['completed', 'failed', 'nsfw', 'canceled'].includes(t.状态));
+      const favN = done.filter(t => favFiles(t).length).length, n = done.length - favN, run = mine.length - done.length;
+      if (!n) return toast(mine.length ? '没有可清的：剩下的都在生成或收藏过' : '列表已经是空的');
+      if (!await confirmBox('清空我的生成', `清掉 <b>${n}</b> 条生成记录（所有项目的）？<br>只清记录，<b>出片文件夹里的视频都不动</b>。${favN ? `<br>收藏过的 ${favN} 条留着。` : ''}${run ? `<br>正在生成的 ${run} 条留着。` : ''}<br>清掉的记录找不回来。`, `清掉 ${n} 条`, true)) return;
+      const r = await api('/api/tasks/clear', {留收藏:true}); await pollTasks(); renderProjects(); toast(`已清掉 ${r.删了} 条记录，视频文件没动`);
+    } else {
+      await ensureComposer();
+      const inUse = new Set([...Object.values(S.assign || {}).flat(), ...(S.shelf || [])]);
+      const ids = S.lib.map(a => a.id).filter(id => !inUse.has(id)), kept = S.lib.length - ids.length;
+      if (!ids.length) return toast(S.lib.length ? '剩下的素材都在生成框里用着，先从生成框拿掉' : '列表已经是空的');
+      if (!await confirmBox('清空我的元素', `清掉 <b>${ids.length}</b> 个素材？<br>清的是工作台里存的副本，<b>你电脑上的原文件不动</b>；以后要用再拖进来。${kept ? `<br>现在放在生成框里的 ${kept} 个留着。` : ''}<br>清掉的找不回来。`, `清掉 ${ids.length} 个`, true)) return;
+      const r = await api('/api/assets/clear', {ids}); ids.forEach(id => S.elSel.delete(id)); await loadLib(); toast(`已清掉 ${r.删了} 个素材${r.留下 ? `，${r.留下} 个正在上传的留着` : ''}`);
+    }
+  } catch (err){ toast(err.message, true); }
+}
+function renderFilters(){
+  if (S.view === 'elements'){
+    $('filters').innerHTML = '';
+    return;
+  }
+  const opts = [['all', '全部'], ['done', '完成'], ['run', '进行中'], ['bad', '失败']].concat(S.view === 'gens' ? S.cfg.models.map(m => ['m:' + m.名称, m.名称]) : []);
+  $('filters').innerHTML = opts.map(([k, l]) => `<button class="chip sm ${S.galFilter === k ? 'on' : ''}" data-f="${esc(k)}">${esc(l)}</button>`).join('');
+}
+$('filters').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b){ S.galFilter = b.dataset.f; renderFilters(); renderGallery(); } });
+function renderCounts(){
+  $('cntGens').textContent = S.tasks.length || '';
+  $('cntFavs').textContent = S.tasks.reduce((n, t) => n + favFiles(t).length, 0) || '';
+  $('cntEls').textContent = S.lib.length || '';
+}
+async function route(){
+  const h = location.hash.replace(/^#\/?/, '') || 'home';
+  let view = h, pid = null;
+  if (h.startsWith('p/')){ view = 'project'; pid = h.slice(2); if (!project(pid)){ location.hash = '#/home'; return; } }
+  if (!['home', 'gens', 'elements', 'favs', 'project', 'workflows'].includes(view)) view = 'home';
+  const changed = view !== S.view || pid !== S.pid;
+  S.view = view; S.pid = pid;
+  if (changed){ S.galFilter = 'all'; closePop(); }
+  document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === view));
+  const comp = composerOn();
+  if (changed) S.railN = 30;
+  document.body.classList.toggle('railmode', comp);
+  (comp ? $('rail') : $('galHome')).appendChild($('galBox'));
+  $('composer').hidden = !comp;
+  $('elemView').hidden = view !== 'elements';
+  $('galBox').hidden = view === 'elements' || view === 'workflows';
+  $('wfView').hidden = view !== 'workflows';
+  if (view === 'workflows') renderWorkflows();
+  $('openOut').hidden = !comp;
+  $('galTitle').textContent = {home:'最近生成', project:'这个项目的生成', gens:'全部', favs:'收藏'}[view] || '';
+  if (comp){
+    S.lastComposer = location.hash || '#/home';
+    const ctx = view === 'project' ? pid : null;
+    if (ctx !== S.ctx){ if (S.ctx !== undefined) saveDraft(); S.ctx = ctx; await loadDraft(); }
+  }
+  renderHead(); renderFilters(); renderProjects();
+  if (view === 'elements') loadLib(); else renderGallery();
+  if (comp) renderDrawer();
+  if (changed) window.scrollTo(0, 0);
+}
+addEventListener('hashchange', route);
+$('openOut').onclick = () => api('/api/reveal', {p:ctxOut()}).catch(err => toast(err.message, true));
+
+// ---------- 草稿：每个项目一份（只是本机浏览器的方便，丢了也没关系）----------
+const draftKey = () => 'hf-draft:' + (S.ctx || 'home');
+function saveDraft(){ if (S.ctx === undefined) return; try { localStorage.setItem(draftKey(), JSON.stringify({...snapshot(), paramsBy:S.paramsBy, shelf:S.shelf, outDir:S.outDir})); } catch {} }
+async function loadDraft(){
+  let d = null; try { d = JSON.parse(localStorage.getItem(draftKey()) || 'null'); } catch {}
+  S.assign = {}; S.shelf = []; S.prefix = ''; S.count = 1; $('prompt').value = ''; S.caret = null;
+  if (d) await loadForm(d); else renderComposer();
+}
+async function loadForm(d){
+  if (!d) return;
+  const mi = S.cfg.models.findIndex(m => m.方式.some(w => w.endpoint === d.endpoint));
+  if (mi >= 0){ S.mi = mi; S.wi = S.cfg.models[mi].方式.findIndex(w => w.endpoint === d.endpoint); }
+  Object.assign(S.paramsBy, d.paramsBy || {});
+  S.prefix = d.prefix || ''; S.count = d.count || 1; if (d.outDir && !S.ctx && !d.outDir.includes('/Higgsfield生成/')) S.outDir = d.outDir;  // 工具文件夹改过名，旧草稿里的旧路径不要
+  $('prompt').value = d.prompt || '';
+  const ids = [...new Set([...Object.values(d.assign || {}).flat(), ...(d.shelf || [])])];
+  await Promise.all(ids.filter(id => !S.assets[id]).map(async id => { try { const a = await api('/api/assets/' + id); if (a.id) S.assets[id] = a; } catch {} }));
+  S.assign = {}; S.shelf = [];
+  for (const [k, v] of Object.entries(d.assign || {})) S.assign[k] = v.filter(id => S.assets[id]);
+  S.shelf = (d.shelf || []).filter(id => S.assets[id]);
+  const fields = new Set(mediaFields().map(f => f.field));
+  if (Object.keys(S.assign).some(k => !fields.has(k))) reflow();
+  renderComposer(); saveDraft();
+}
+
+// ---------- 启动 ----------
+async function boot(){
+  try { [S.cfg, S.st] = await Promise.all([api('/api/models'), api('/api/state')]); await loadProjects(); }
+  catch (err){ document.body.innerHTML = `<div style="padding:30px"><div class="banner">连不上后台：${esc(err.message)}。重新双击「启动」再刷新。</div></div>`; return; }
+  renderKeyPill();
+  $('cntWf').textContent = model().方式.filter(w => w.workflowId).length || '';
+  try { localStorage.removeItem('hf-draft'); } catch {}  // 旧版只有一份草稿
+  try { S.lib = await api('/api/assets'); for (const a of S.lib) S.assets[a.id] = a; } catch {}
+  await pollTasks();
+  await route();
+  loadAccount(); setInterval(loadAccount, 120000);
+  setInterval(pollTasks, 2500);
+}
+// ---------- API Key ----------
+function renderKeyPill(){
+  const pill = $('keyPill'); pill.style.cursor = 'pointer'; pill.title = '点这里填写或更换 RunningHub API Key';
+  if (S.st.演示){ pill.className = 'pill warn'; pill.lastChild.textContent = '演示模式 · 不扣费'; }
+  else if (S.st.有RH密钥){ pill.className = 'pill'; pill.lastChild.textContent = 'API Key 已保存' + (S.acct && S.acct.余额 != null ? ` · 余额 ${S.acct.余额}` : ''); }
+  else { pill.className = 'pill bad'; pill.lastChild.textContent = '没有 API Key'; }
+  renderGuide();
+}
+// 首次使用引导：Key → 工作流 → 项目。前两步没做完一直显示；都做完后，建了项目、出过片或点了「不再显示」就收起
+function renderGuide(){
+  if (!S.cfg || !S.st) return;
+  const key = S.st.有RH密钥 || S.st.演示, wfOk = model().方式.some(w => w.workflowId && !w.问题), proj = S.projects.length > 0;
+  let off = false; try { off = localStorage.getItem('h3-guide-off') === '1'; } catch {}
+  const show = !key || !wfOk || (!proj && !S.tasks.length && !off);
+  const sig = show ? [key, wfOk, proj].join() : '';
+  if ($('banner').dataset.sig === sig) return;
+  $('banner').dataset.sig = sig;
+  if (!show){ $('banner').innerHTML = ''; return; }
+  const step = (n, ok, title, sub, act, btn) => `<div class="gstep ${ok ? 'ok' : ''}"><i>${ok ? '✓' : n}</i><div><b>${title}</b><span>${sub}</span></div>${ok ? '' : `<button class="ghost" data-g="${act}">${btn}</button>`}</div>`;
+  $('banner').innerHTML = `<div class="guide"><div class="gh">开始使用，三步${key && wfOk ? `<button class="ghost" data-g="off" style="margin-left:auto">不再显示</button>` : ''}</div>
+    ${step(1, key, '填 RunningHub API Key', S.st.演示 ? '演示模式不需要' : key ? `已加密保存在${esc(S.st.密钥存放 || '本机')}` : '在 RunningHub 个人中心的「API 调用」里复制；会加密保存在这台电脑上', 'key', '填写 Key')}
+    ${step(2, wfOk, '添加工作流', wfOk ? `已有 ${model().方式.filter(w => w.workflowId && !w.问题).length} 个可用` : '贴上 RunningHub 工作流的 ID，会自动核对能不能用', 'wf', '去添加')}
+    ${step(3, proj, '新建项目（可选）', proj ? `已有 ${S.projects.length} 个项目` : '按片子、场次、镜头分开放，最多四层；不建也能直接在首页生成', 'proj', '新建项目')}</div>`;
+}
+$('banner').addEventListener('click', e => {
+  const g = e.target.closest('[data-g]')?.dataset.g; if (!g) return;
+  if (g === 'key') keyBox();
+  else if (g === 'wf'){ location.hash = '#/workflows'; setTimeout(() => $('wfId').focus(), 200); }
+  else if (g === 'proj') newProjectIn(null);
+  else if (g === 'off'){ try { localStorage.setItem('h3-guide-off', '1'); } catch {} renderGuide(); }
+});
+async function loadAccount(){ try { S.acct = await api('/api/account'); } catch { S.acct = null; } renderKeyPill(); }
+function keyBox(){
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = `<div class="modal"><h3>RunningHub API Key</h3>
+    <div style="font-size:14px;color:var(--tx2);line-height:1.7">${S.st.有RH密钥 ? '已经保存了一个 Key。要换就在下面粘贴新的。' : '在 RunningHub 个人中心的「API 调用」里复制 Key，粘贴到下面。'}<br>
+    保存在：${esc(S.st.密钥存放 || '')}。保存后这里不会再显示它，也不会写进日志和记录。</div>
+    <input type="password" id="keyIn" autocomplete="off" spellcheck="false" placeholder="粘贴 API Key" style="width:100%;margin:14px 0 4px;background:#25272a;border:1px solid #333538;border-radius:10px;padding:10px 12px;font-size:14px;outline:0;color:var(--tx)">
+    <div class="small" id="keyMsg" style="min-height:20px;color:var(--amber)"></div>
+    <div class="btns">${S.st.有RH密钥 ? '<button class="danger" data-x="del" style="margin-right:auto">删除已存的 Key</button>' : ''}<button data-x="no">取消</button><button class="go" data-x="ok">验证并保存</button></div></div>`;
+  document.body.appendChild(bg);
+  const inp = bg.querySelector('#keyIn'), msg = bg.querySelector('#keyMsg'); inp.focus();
+  const save = async () => {
+    if (!inp.value.trim()){ msg.textContent = '先粘贴 Key'; return; }
+    msg.textContent = '正在连 RunningHub 验证…';
+    try {
+      const r = await api('/api/key', {key:inp.value}); inp.value = '';
+      S.st = await api('/api/state'); S.acct = r.账户; renderKeyPill(); if (composerOn()) renderComposer(); bg.remove();
+      toast(r.已验证 ? `Key 验证通过，已保存${r.账户 && r.账户.余额 != null ? '；余额 ' + r.账户.余额 : ''}` : S.st.演示 ? '演示模式：已保存，没有连平台验证' : '已保存，但没能连上 RunningHub 验证（网络或 VPN？）', !r.已验证 && !S.st.演示);
+    } catch (err){ msg.textContent = err.message; }
+  };
+  inp.onkeydown = e => { if (e.key === 'Enter') save(); };
+  bg.onclick = async e => {
+    const x = e.target.closest('[data-x]')?.dataset.x;
+    if (e.target === bg || x === 'no') bg.remove();
+    else if (x === 'ok') save();
+    else if (x === 'del'){ bg.remove(); if (!await confirmBox('删除已存的 Key', '删掉后要重新填才能提交。', '删除', true)) return; await api('/api/key/delete', {}); S.st = await api('/api/state'); S.acct = null; renderKeyPill(); if (composerOn()) renderComposer(); toast('已删除保存的 Key'); }
+  };
+}
+$('keyPill').onclick = keyBox;
+
+// ---------- 工作流库 ----------
+async function reloadCfg(keepEp){
+  const ep = keepEp || (wf() || {}).endpoint;
+  S.cfg = await api('/api/models');
+  const j = model().方式.findIndex(w => w.endpoint === ep);
+  S.wi = j >= 0 ? j : Math.min(S.wi, model().方式.length - 1);
+  $('cntWf').textContent = model().方式.filter(w => w.workflowId).length || '';
+  renderGuide();
+}
+async function renderWorkflows(){
+  let list;
+  try { list = await api('/api/workflows'); } catch (err){ $('wfList').innerHTML = `<div class="banner">${esc(err.message)}</div>`; return; }
+  const cur = (wf() || {}).endpoint;
+  const use = {}; for (const t of S.tasks){ const u = use[t.endpoint] || (use[t.endpoint] = {n:0, last:''}); u.n++; if (t.创建 > u.last) u.last = t.创建; }
+  $('wfList').innerHTML = list.length ? list.map(e => {
+    const c = e.核对 || {}, u = use[e.endpoint];
+    return `<div class="wfrow ${e.endpoint === cur ? 'cur' : ''}" data-id="${e.id}" data-ep="${esc(e.endpoint)}">
+      <div class="nm"><span data-w="name" title="点击改名">${esc(e.名称)}</span><span class="tag">${esc(e.结构 || '')}</span>${e.endpoint === cur ? '<span class="tag" style="color:var(--lime)">生成框正在用</span>' : ''}</div>
+      <div class="acts"><button class="ghost" data-w="use">用它生成</button><button class="ghost" data-w="check">重新核对</button><button class="ghost" data-w="del">删除</button></div>
+      <div class="meta"><code data-w="copy" title="点击复制">ID ${esc(e.workflowId)}</code><span class="note" data-w="note" title="点击改备注">${esc(e.备注) || '加备注'}</span>
+        <span>${u ? `用过 ${u.n} 次，最近 ${esc(u.last.slice(5, 16).replace('T', ' '))}` : '还没用过'}</span>
+        ${c.结果 === '通过' ? `<span class="ok">核对通过 · ${c.节点数} 个节点 · ${esc((c.时间 || '').slice(5, 16).replace('T', ' '))}</span>` : c.结果 ? `<span>${esc(c.结果)}</span>` : '<span>还没核对</span>'}</div>
+      ${(c.问题 || []).length ? `<div class="bad">和窗口对不上，这个工作流现在提交不了：<br>${c.问题.map(esc).join('<br>')}</div>` : ''}
+    </div>`; }).join('') : `<div class="hero"><h1 style="font-size:26px">添加你的第一个工作流</h1><p>把 RunningHub 上工作流页面地址里那串数字贴到上面</p></div>`;
+}
+$('wfAdd').onclick = async () => {
+  const b = $('wfAdd'); if (!$('wfId').value.trim()){ toast('先贴上工作流 ID', true); $('wfId').focus(); return; }
+  b.disabled = true; b.textContent = '核对中…';
+  try {
+    const e = await api('/api/workflows', {workflowId:$('wfId').value, 名称:$('wfName').value, 备注:$('wfNote').value});
+    $('wfId').value = $('wfName').value = $('wfNote').value = '';
+    await reloadCfg(); await renderWorkflows();
+    const bad = ((e.核对 || {}).问题 || []).length;
+    toast(bad ? `已添加「${e.名称}」，但和窗口对不上，看列表里的说明` : `已添加「${e.名称}」：${e.结构}，核对通过`, !!bad);
+  } catch (err){ toast(err.message, true); }
+  b.disabled = false; b.textContent = '添加并核对';
+};
+$('wfId').addEventListener('keydown', e => { if (e.key === 'Enter') $('wfAdd').click(); });
+$('wfList').addEventListener('click', async e => {
+  const el = e.target.closest('[data-w]'), row = e.target.closest('.wfrow'); if (!el || !row) return;
+  const id = row.dataset.id, ep = row.dataset.ep, w = el.dataset.w;
+  const name = row.querySelector('[data-w=name]').textContent;
+  try {
+    if (w === 'copy'){ await navigator.clipboard.writeText(el.textContent.replace('ID ', '')); toast('ID 已复制'); }
+    else if (w === 'use'){ const j = model().方式.findIndex(x => x.endpoint === ep); if (j < 0) return; S.wi = j; reflow(); saveDraft(); location.hash = S.ctx ? '#/p/' + S.ctx : '#/home'; toast(`生成框换成「${name}」`); }
+    else if (w === 'check'){ el.textContent = '核对中…'; const r = await api('/api/workflows/' + id, {核对:true}); await reloadCfg(); await renderWorkflows(); const bad = (r.核对.问题 || []).length; toast(bad ? `「${name}」和窗口对不上` : `「${name}」核对通过（${r.结构}）`, !!bad); }
+    else if (w === 'del'){ if (!await confirmBox('从工作流库删除', `删除「${esc(name)}」？<br>只是从这个列表里拿掉，RunningHub 上的工作流和已经出的片都不动。`, '删除', true)) return; await api(`/api/workflows/${id}/delete`, {}); await reloadCfg(); await renderWorkflows(); }
+    else if (w === 'name' || w === 'note'){
+      if (el.querySelector('input')) return;
+      const key = w === 'name' ? '名称' : '备注', old = w === 'note' && el.textContent === '加备注' ? '' : el.textContent;
+      el.innerHTML = `<input value="${esc(old)}" style="padding:4px 8px;width:${w === 'name' ? 320 : 260}px">`;
+      const inp = el.firstChild; inp.focus(); inp.select();
+      const done = async save => { if (save && inp.value.trim() !== old && (w === 'note' || inp.value.trim())){ try { await api('/api/workflows/' + id, {[key]:inp.value}); await reloadCfg(); } catch (err){ toast(err.message, true); } } renderWorkflows(); };
+      inp.onkeydown = ev => { if (ev.key === 'Enter') inp.blur(); if (ev.key === 'Escape'){ inp.onblur = null; done(false); } };
+      inp.onblur = () => done(true);
+    }
+  } catch (err){ toast(err.message, true); renderWorkflows(); }
+});
+boot();
+</script>
+</body>
+</html>

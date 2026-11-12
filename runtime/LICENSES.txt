@@ -1,0 +1,14 @@
+这个包里带的第三方软件
+
+Python 3.13.18（python-build-standalone 打的免安装版）
+  来源：https://github.com/astral-sh/python-build-standalone （release 20261110）
+  许可：PSF License（runtime/python 里有 LICENSE 文件）
+
+FFmpeg 9.0（GPL 版，含 x264）
+  来源：https://ffmpeg.martin-riedl.de （macOS arm64，9.0.2）
+  许可：GNU GPL v3。FFmpeg 的源码：https://ffmpeg.org/download.html ；
+        Windows 版的构建脚本和对应源码版本：https://github.com/BtbN/FFmpeg-Builds
+  工作台只是把 ffmpeg 当成独立程序来调用（转素材格式、做缩略图），没有和它链接在一起。
+
+websockets 17.1    https://pypi.org/project/websockets/   BSD-3-Clause
+certifi 2026.10.23 https://pypi.org/project/certifi/      MPL-2.0
