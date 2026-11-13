@@ -127,8 +127,12 @@ def verify_downloads():
 
 
 def version():
-    r = subprocess.run(["git", "-C", str(SRC), "log", "-1", "--format=%h", "--", "."], capture_output=True, text=True)
-    return f"{datetime.now():%Y-%m-%d}（{r.stdout.strip() or '未入库'}）"
+    """版本号读 hf.py 里的 VERSION（界面左下角显示的也是它），后面跟打包日期。"""
+    import re
+    m = re.search(r'^VERSION = "([^"]+)"', (SRC / "hf.py").read_text(encoding="utf-8"), re.M)
+    if not m:
+        raise SystemExit("hf.py 里找不到 VERSION，不能打包")
+    return f"v{m.group(1)}（{datetime.now():%Y-%m-%d} 打包）"
 
 
 # 成品只带这一个结构模板（Peter 2026-11-12 定）：分段、参考视频可空。≤15 秒只跑 1 段，和单段工作流一样，所以所有镜头都用它。

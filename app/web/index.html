@@ -69,6 +69,7 @@ svg{display:block}
 .pill.warn b{background:var(--amber)} .pill.bad b{background:var(--red)}
 .navfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .quit{font-size:12.5px;color:var(--tx3);padding:6px 10px;border-radius:99px}
+.ver{font-size:11.5px;color:var(--tx3);padding:0 4px;width:100%}
 .quit:hover{color:var(--red);background:var(--chip)}
 .quit-page{position:fixed;inset:0;z-index:300;background:var(--bg);display:grid;place-items:center;text-align:center;padding:24px}
 .quit-page h2{margin:0 0 10px;font-size:26px} .quit-page p{color:var(--tx2);margin:4px 0}
@@ -425,6 +426,7 @@ body.railmode .hero h1{font-size:28px;margin-bottom:4px}
     <div class="navfoot">
       <div id="keyPill" class="pill"><b></b><span>…</span></div>
       <button id="quitBtn" class="quit" title="停掉工作台：后台不再运行、不再连 RunningHub">退出工作台</button>
+      <span id="verTag" class="ver"></span>
     </div>
   </aside>
 
@@ -1681,6 +1683,7 @@ async function boot(){
 }
 // ---------- API Key ----------
 function renderKeyPill(){
+  if (S.st && S.st.版本) $('verTag').textContent = 'MiniMax H3 工作台 v' + S.st.版本;
   const pill = $('keyPill'); pill.style.cursor = 'pointer'; pill.title = '点这里填写或更换 RunningHub API Key';
   if (S.st.演示){ pill.className = 'pill warn'; pill.lastChild.textContent = '演示模式 · 不扣费'; }
   else if (S.st.有RH密钥){ pill.className = 'pill'; pill.lastChild.textContent = 'API Key 已保存' + (S.acct && S.acct.余额 != null ? ` · 余额 ${S.acct.余额}` : ''); }

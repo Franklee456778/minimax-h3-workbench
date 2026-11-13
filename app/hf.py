@@ -41,7 +41,8 @@ PROJECTS_FILE = DATA / "项目.json"
 WIN, MAC = sys.platform == "win32", sys.platform == "darwin"
 
 PORT = int(os.environ.get("H3_PORT") or 8790)  # 8765 是 05-电影 预演服务器在用；H3_PORT 可以临时换端口
-UA = "h3-workbench/1.0"
+VERSION = "1.0"  # 版本号：每次给别人发新包前加一（1.1、1.2…），界面左下角、使用说明、启动提示都读这里
+UA = f"h3-workbench/{VERSION}"
 MOCK = "--演示" in sys.argv
 
 # 这些格式直接上传；其他格式先用 ffmpeg / sips 转
@@ -690,7 +691,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/state":
                 s = load_json(SETTINGS_FILE, {})
                 return self.json({"有RH密钥": rh.has_key(), "密钥存放": rh.key_place(), "演示": MOCK,
-                                  "输出目录": s.get("输出目录", posix(DEFAULT_OUT)), "系统": "win" if WIN else "mac" if MAC else "other"})
+                                  "输出目录": s.get("输出目录", posix(DEFAULT_OUT)), "系统": "win" if WIN else "mac" if MAC else "other", "版本": VERSION})
             if u.path == "/api/snippets":
                 return self.json(load_json(SNIPPETS_FILE, []))
             if u.path == "/api/account":
@@ -898,7 +899,7 @@ def main():
         print(f"工作台已经在运行：{url}")
         webbrowser.open(url)
         return
-    print(f"MiniMax H3 工作台：{url}{'（演示模式，不扣费）' if MOCK else ''}  关掉这个终端窗口就停止")
+    print(f"MiniMax H3 工作台 v{VERSION}：{url}{'（演示模式，不扣费）' if MOCK else ''}  关掉这个终端窗口就停止")
     if "--不开浏览器" not in sys.argv:
         webbrowser.open(url)
     try:
