@@ -1,7 +1,5 @@
 # 数据和运行环境不进库
 data/
-runtime/python/
-runtime/ffmpeg/
-runtime/lib/
+runtime/
 __pycache__/
 .DS_Store

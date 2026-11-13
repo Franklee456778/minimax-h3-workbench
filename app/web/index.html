@@ -30,7 +30,9 @@ svg{display:block}
 .ni .t{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
 .t.gray{background:linear-gradient(160deg,#a6a6ad,#5b5b62)} .t.cyan{background:linear-gradient(160deg,#7fe3f0,#2f93c4)}
 .t.blue{background:linear-gradient(160deg,#6db5ff,#2f62e6)} .t.pink{background:linear-gradient(160deg,#ff9cc8,#e3487f)}
-.t.proj{background:color-mix(in srgb,var(--fc,#e2e8f0) 13%,#232528);color:var(--fc,var(--tx2));box-shadow:none;border:1px solid color-mix(in srgb,var(--fc,#e2e8f0) 22%,transparent)}
+.t.proj{background:#2b2d30;color:var(--fc,var(--tx2));box-shadow:none;border:0}
+.t.proj svg path{fill:currentColor}  /* 文件夹实心填色（Peter 11-12 定），不只是描边 */
+.pjren{flex:1;min-width:0;background:#131416;border:1px solid var(--lime-d);border-radius:8px;padding:3px 8px;font-size:14px;outline:none;color:var(--tx)}
 .pjnew{align-items:flex-start;background:#25272a;cursor:default}
 .pjnew .pjn{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;padding-bottom:3px}
 .pjnew input{width:100%;background:#131416;border:1px solid var(--lime-d);border-radius:8px;padding:4px 8px;font-size:14px;outline:none}
@@ -65,6 +67,11 @@ svg{display:block}
 .pill{font-size:12.5px;padding:6px 11px;border-radius:99px;background:var(--chip);color:var(--tx2);display:flex;align-items:center;gap:6px;width:fit-content}
 .pill b{width:7px;height:7px;border-radius:50%;background:var(--green)}
 .pill.warn b{background:var(--amber)} .pill.bad b{background:var(--red)}
+.navfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.quit{font-size:12.5px;color:var(--tx3);padding:6px 10px;border-radius:99px}
+.quit:hover{color:var(--red);background:var(--chip)}
+.quit-page{position:fixed;inset:0;z-index:300;background:var(--bg);display:grid;place-items:center;text-align:center;padding:24px}
+.quit-page h2{margin:0 0 10px;font-size:26px} .quit-page p{color:var(--tx2);margin:4px 0}
 .ghost{font-size:13px;color:var(--tx2);padding:7px 12px;border-radius:10px;background:var(--chip);width:fit-content}
 .ghost:hover{background:var(--chip-h);color:var(--tx)}
 
@@ -417,6 +424,7 @@ body.railmode .hero h1{font-size:28px;margin-bottom:4px}
     </div>
     <div class="navfoot">
       <div id="keyPill" class="pill"><b></b><span>…</span></div>
+      <button id="quitBtn" class="quit" title="停掉工作台：后台不再运行、不再连 RunningHub">退出工作台</button>
     </div>
   </aside>
 
@@ -528,7 +536,9 @@ const famOf = id => [id, ...kidsOf(id).flatMap(k => famOf(k.id))];          // �
 const pathOf = id => { const out = []; for (let p = project(id), n = 0; p && n < 6; p = project(p.上级), n++) out.unshift(p); return out; };
 const ctxOut = () => S.ctx ? (project(S.ctx) || {}).输出目录 : (S.outDir || S.st.输出目录);
 
+const MAX_COUNT = 10;  // 一次最多生成几条（Peter 2026-11-12 定 10）
 async function api(path, body){
+  if (S.quit) return new Promise(() => {});  // 退出后不再请求后台（不报错、不弹提示）
   const r = await fetch(path, body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   let j; try { j = await r.json(); } catch { j = {错误:`后台没有回应（${r.status}）`}; }
   if (!r.ok || j.错误) throw new Error(j.错误 || r.status);
@@ -750,7 +760,7 @@ function renderBar(){
   const extra = keys.filter(k => !main.includes(k));
   const chipVal = k => props[k].type === 'string' && !props[k].enum ? (p[k] ? `${plabel(k)} ${p[k]}` : (k === '种子' ? '随机种子' : '')) : showVal(p[k]);
   if (extra.length) h += `<button class="chip" data-pop="adv" title="其他参数">${I.sliders}${extra.filter(k => simpleParam(props[k])).map(chipVal).filter(x => x !== '').map(esc).join(' · ') || '高级'}</button>`;
-  h += `<div class="stepper"><button data-act="cnt" data-d="-1" ${S.count <= 1 ? 'disabled' : ''}>−</button><span>${S.count}<small>/4</small></span><button data-act="cnt" data-d="1" ${S.count >= 4 ? 'disabled' : ''}>+</button></div>`;
+  h += `<div class="stepper"><button data-act="cnt" data-d="-1" ${S.count <= 1 ? 'disabled' : ''}>−</button><span>${S.count}<small>/${MAX_COUNT}</small></span><button data-act="cnt" data-d="1" ${S.count >= MAX_COUNT ? 'disabled' : ''}>+</button></div>`;
   $('bar').innerHTML = h;
 }
 
@@ -988,7 +998,7 @@ document.addEventListener('click', async e => {
   else if (act === 'convertTags') convertTags();
   else if (act === 'remove'){ e.stopPropagation(); unassign(a.dataset.id); renderComposer(); saveDraft(); }
   else if (act === 'toggle'){ const p = params(); p[a.dataset.k] = !p[a.dataset.k]; renderComposer(); saveDraft(); }
-  else if (act === 'cnt'){ S.count = Math.max(1, Math.min(4, S.count + +a.dataset.d)); renderBar(); renderGen(); saveDraft(); }
+  else if (act === 'cnt'){ S.count = Math.max(1, Math.min(MAX_COUNT, S.count + +a.dataset.d)); renderBar(); renderGen(); saveDraft(); }
   else if (act === 'pickDir'){
     try {
       const j = await api('/api/pick-folder', {}); if (!j.路径) return;
@@ -1408,7 +1418,7 @@ $('elDrop').onclick = () => { pickTarget = null; pickLib = true; $('fileIn').cli
 // ---------- 项目 ----------
 async function loadProjects(){ S.projects = await api('/api/projects'); renderProjects(); renderGuide(); }
 function renderProjects(force){
-  if (S.newIn && !force && $('projList').querySelector('.pjnew input')) return;  // 正在起名（可能在用输入法）：别重画
+  if (!force && ((S.newIn && $('projList').querySelector('.pjnew input')) || (S.renaming && $('projList').querySelector('.pjren')))) return;  // 正在起名或改名（可能在用输入法）：别重画
   const q = ($('projSearch').value || '').trim().toLowerCase();
   const sort = l => S.projSort === 'name' ? l.sort((a, b) => a.名称.localeCompare(b.名称, 'zh-CN', {numeric:true})) : l.sort((a, b) => b.创建.localeCompare(a.创建));
   let shut = []; try { shut = JSON.parse(localStorage.getItem('h3-proj-shut') || '[]'); } catch {}
@@ -1428,7 +1438,7 @@ function renderProjects(force){
     const fam = famOf(p.id), n = S.tasks.filter(t => fam.includes(t.项目)).length, open = !shut.includes(p.id);
     return `<a class="ni pj ${S.view === 'project' && S.pid === p.id ? 'on' : ''}" href="#/p/${p.id}" draggable="true" data-pid="${p.id}" style="padding-left:${10 + lv * 18}px" title="${esc(pathOf(p.id).map(x => x.名称).join(' / '))}">
       <span class="tw ${kids ? '' : 'none'} ${open ? 'open' : ''}" data-tw="${p.id}">${I.chev}</span><span class="t proj" style="--fc:${pcolor(p)}">${I.folderSm}</span>
-      <span class="pn">${esc(p.名称)}${where ? `<small>${esc(where)}</small>` : ''}</span><span class="cnt">${n || ''}</span><button class="more" data-pop="proj" data-k="${p.id}" title="更多">${I.dots}</button></a>`;
+      ${S.renaming === p.id ? `<input class="pjren" data-ren="${p.id}" value="${esc(p.名称)}" maxlength="60">` : `<span class="pn">${esc(p.名称)}${where ? `<small>${esc(where)}</small>` : ''}</span>`}<span class="cnt">${n || ''}</span><button class="more" data-pop="proj" data-k="${p.id}" title="更多">${I.dots}</button></a>`;
   }).join('') || (q ? '<div class="small" style="color:var(--tx3);padding:4px 12px;font-size:13px">没有找到</div>' : '');
   const inp = $('projList').querySelector('.pjnew input');
   if (inp){ inp.value = keep; inp.focus(); inp.scrollIntoView({block:'nearest'}); }
@@ -1440,9 +1450,26 @@ const colorDots = cur => Object.entries(PCOLOR).map(([k, [name, hex]]) => `<i cl
 // 新建：在上一级文件夹下面就地出现一行，直接起名
 function newProjectIn(parent){
   const up = parent ? project(parent) : null;
+  S.renaming = null;  // 改名改到一半又去新建：先放下改名
   S.newIn = {parent:parent || null, color:(up && up.颜色) || 'lime'};
   renderProjects(true);
 }
+// 重命名：就在左栏这一行改，回车或点别处保存，Esc 取消
+function renameInPlace(pid){
+  S.newIn = null; S.renaming = pid; renderProjects(true);
+  const i = $('projList').querySelector('.pjren'); if (i){ i.focus(); i.select(); }
+}
+async function finishRename(save){
+  const i = $('projList').querySelector('.pjren'), pid = S.renaming; if (!i || !pid) return;
+  const v = i.value.trim(), p = project(pid); S.renaming = null;
+  if (save && v && p && v !== p.名称){
+    try { await api('/api/projects/' + pid, {名称:v}); await loadProjects(); renderHead(); return; } catch (err){ toast(err.message, true); }
+  }
+  renderProjects(true);
+}
+$('projList').addEventListener('keydown', e => { if (!e.target.matches('.pjren')) return; if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); finishRename(true); } else if (e.key === 'Escape') finishRename(false); });
+$('projList').addEventListener('focusout', e => { if (e.target.matches('.pjren')) finishRename(true); });
+$('projList').addEventListener('click', e => { if (e.target.matches('.pjren')){ e.preventDefault(); e.stopPropagation(); } }, true);
 function cancelNew(){ if (S.newIn){ S.newIn = null; renderProjects(); } }
 async function commitNew(){
   const ni = S.newIn, inp = $('projList').querySelector('.pjnew input'); if (!ni || !inp) return;
@@ -1450,7 +1477,7 @@ async function commitNew(){
   try { const p = await api('/api/projects', {名称:inp.value, 上级:ni.parent, 颜色:ni.color}); S.newIn = null; await loadProjects(); location.hash = '#/p/' + p.id; }
   catch (err){ toast(err.message, true); inp.focus(); }
 }
-$('projList').addEventListener('keydown', e => { if (!e.target.closest('.pjnew')) return; if (e.key === 'Enter'){ e.preventDefault(); commitNew(); } else if (e.key === 'Escape') cancelNew(); });
+$('projList').addEventListener('keydown', e => { if (!e.target.closest('.pjnew')) return; if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); commitNew(); } else if (e.key === 'Escape') cancelNew(); });
 $('projList').addEventListener('mousedown', e => { const d = e.target.closest('.pjnew .cdot'); if (!d) return; e.preventDefault(); S.newIn.color = d.dataset.color; renderProjects(true); });
 $('projList').addEventListener('focusout', e => { if (!e.target.closest('.pjnew')) return; setTimeout(() => { const i = $('projList').querySelector('.pjnew input'); if (S.newIn && i && document.activeElement !== i && !i.value.trim()) cancelNew(); }, 150); });
 $('projList').addEventListener('click', e => {
@@ -1484,9 +1511,9 @@ async function moveProject(id, to){
 function popProject(anchor, pid){
   const p = project(pid); if (!p) return;
   const deep = pathOf(pid).length;
-  const pp = openPop(anchor, `<div class="hd">颜色</div><div class="dots" style="padding:2px 12px 10px">${colorDots(p.颜色 || 'slate')}</div>${deep < 4 ? '<button class="it" data-v="sub">在里面新建文件夹</button>' : ''}${p.上级 ? '<button class="it" data-v="top">移到顶层</button>' : ''}<button class="it" data-v="rename">重命名</button><button class="it" data-v="folder">打开出片文件夹</button><button class="it danger" data-v="del">删除项目</button>`, async v => {
+  const pp = openPop(anchor, `<div class="hd">颜色</div><div class="dots" style="padding:2px 12px 10px">${colorDots(p.颜色 || 'slate')}</div>${deep < 4 ? '<button class="it" data-v="sub">新建子文件夹</button>' : ''}${p.上级 ? '<button class="it" data-v="top">移到顶层</button>' : ''}<button class="it" data-v="rename">重命名</button><button class="it" data-v="folder">打开出片文件夹</button><button class="it danger" data-v="del">删除项目</button>`, async v => {
     closePop();
-    if (v === 'rename'){ location.hash = '#/p/' + pid; await route(); startRename(); }
+    if (v === 'rename') renameInPlace(pid);
     else if (v === 'sub') newProjectIn(pid);
     else if (v === 'top') moveProject(pid, null);
     else if (v === 'folder') api('/api/reveal', {p:p.输出目录}).catch(err => toast(err.message, true));
@@ -1712,6 +1739,16 @@ function keyBox(){
   };
 }
 $('keyPill').onclick = keyBox;
+$('quitBtn').onclick = async () => {
+  const live = S.tasks.filter(t => !t.演示 === !S.st.演示 && ['uploading', 'queued', 'in_progress'].includes(t.状态));
+  const up = live.filter(t => t.状态 === 'uploading').length, run = live.length - up;
+  const warn = (run ? `<br><b>还有 ${run} 条在 RunningHub 上跑</b>：退出后平台上照样跑、照样扣费；下次打开工作台会接着查进度、下载（一采要等整条跑完才下）。` : '')
+    + (up ? `<br><b>有 ${up} 条正在上传</b>：退出后这几条不会提交（不扣费），下次打开显示为失败。` : '');
+  if (!await confirmBox('退出工作台', `停掉工作台的后台程序：之后不再运行、不再连 RunningHub，这个网页也会失效。${warn}<br>下次用时双击「启动.command」（免安装包是「启动.command / 启动.bat」）再打开。`, '退出', !!live.length)) return;
+  try { await api('/api/quit', {}); } catch {}
+  document.body.insertAdjacentHTML('beforeend', '<div class="quit-page"><div><h2>工作台已退出</h2><p>后台已经停了，不再连 RunningHub。</p><p>这个网页可以关掉；那个黑色终端窗口也可以关掉。</p><p style="margin-top:14px;color:var(--tx3)">下次用时双击「启动.command」。</p></div></div>');
+  S.quit = true;
+};
 
 // ---------- 工作流库 ----------
 async function reloadCfg(keepEp){

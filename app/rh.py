@@ -36,7 +36,7 @@ TAG = "<{Kind} {n}>"
 KIND_TAG = {"image": "Picture", "video": "Video", "audio": "Audio"}
 UPLOAD_REUSE_SECONDS = 24 * 3600
 QUEUE_RETRY_SECONDS = 30
-MAX_RUNNING = 3  # 会员 Key 同时最多 3 个任务（_缓存/设置.json 的「RunningHub同时最多」可改）；多出来的在本机排队
+MAX_RUNNING = 10  # RunningHub 上同时最多跑几个（Peter 2026-11-12 定 10，原来 3；_缓存/设置.json 的「RunningHub同时最多」可改）。多出来的在本机排队；平台说排队满（421）就 30 秒后再交
 _slot_lock = threading.Lock()
 
 
@@ -143,6 +143,20 @@ def _acct(d):
     return {"余额": bal, "在跑": int(d.get("currentTaskCounts") or 0)}
 
 
+def _account_problem():
+    """账户接口返回的不是正常状态时，翻成人话（USER_BANNED = 账号被封）；正常或查不到返回 None。"""
+    try:
+        j = post("/uc/openapi/accountStatus", {"apikey": _key()}, timeout=20)
+    except Exception:
+        return None
+    msg = str(j.get("msg") or "")
+    if j.get("code") == 333 or "BANNED" in msg.upper():
+        return "RunningHub 说这个账号被封禁了（USER_BANNED）。不是工作台的问题，要联系 RunningHub 客服解封"
+    if j.get("code") not in (0, None):
+        return f"RunningHub 账户接口返回异常：{msg[:80]}（code {j.get('code')}）"
+    return None
+
+
 def account():
     """账户状态（不扣费）：余额、正在跑几个。读不到返回 None。"""
     try:
@@ -185,7 +199,7 @@ def delete_key():
 
 def migrate_keyfile():
     """老版本的 Key 明文放在 ~/.runninghub_key：加密存储里还没有的话抄一份进来。
-    明文文件不删：独唱项目的 rh_run.py 等几个脚本还直接读它。"""
+    （Peter 的明文文件 2026-11-11 已删，脚本改从钥匙串读；这里留着是给别的电脑上还有老文件的情况，只抄不删。）"""
     if H.MOCK or _store_read():
         return None
     try:
@@ -238,8 +252,14 @@ def _upload_file(path, ftype):
     parts.append(f"--{boundary}--\r\n".encode())
     req = urllib.request.Request(HOST + "/task/openapi/upload", data=b"".join(parts), method="POST",
                                  headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": H.UA})
-    with _open(req, 900) as r:
-        j = json.loads(r.read().decode(errors="replace"))
+    try:
+        with _open(req, 900) as r:
+            j = json.loads(r.read().decode(errors="replace"))
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):  # 多半是账号或 Key 的问题：问一下账户接口，把真原因说出来
+            why = _account_problem()
+            raise RuntimeError(why or f"RunningHub 拒绝了上传（HTTP {e.code}）：Key 可能失效，到左下角重新填一下") from None
+        raise
     if j.get("code") != 0:
         raise RuntimeError(f"上传到 RunningHub 失败：{json.dumps(j, ensure_ascii=False)[:300]}")
     return j["data"]["fileName"]
@@ -384,7 +404,10 @@ def match_template(data, prefer=None):
     if ok:
         return max(ok, key=lambda x: x[1])[2], []
     if not scored:
-        raise RuntimeError("没有可用的结构模板")
+        odd = [f.name for f in REG_DIR.glob("*.json")]
+        raise RuntimeError("程序文件夹 app/RunningHub工作流 里没有结构模板"
+                           + (f"（里面的 {'、'.join(odd)} 是 ComfyUI 工作流本身，不是模板，不用放这里）" if odd else "")
+                           + "。把包里原来的 信_Pika_分段.json 等三个模板放回去；工作流在 RunningHub 上部署好后，只要在这页贴它的 ID")
     probs, _, r = min(scored, key=lambda x: len(x[0]) * 1000 - x[1])
     return r, probs
 
@@ -777,10 +800,12 @@ def _running():
 
 
 def _my_turn(tid):
-    """本机排队按提交顺序：轮到自己（最早在等的那条）且平台上不满 3 个才交。"""
+    """本机排队按提交顺序：轮到自己（最早在等的那条）且平台上不满上限（MAX_RUNNING）才交。"""
     limit = int(H.load_json(H.SETTINGS_FILE, {}).get("RunningHub同时最多", MAX_RUNNING))
-    waiting = sorted(x["id"] for x in H.tasks.values() if x.get("等待") and x["状态"] == "uploading"
-                     and x.get("演示", False) == H.MOCK)
+    # 按创建时间、批次、序号（数字）排：只按编号字符串排的话，第 10 条「…-10」会排到「…-2」前面，整批互相等着卡死
+    waiting = [x["id"] for x in sorted((x for x in H.tasks.values() if x.get("等待") and x["状态"] == "uploading"
+                                        and x.get("演示", False) == H.MOCK),
+                                       key=lambda x: (x.get("创建", ""), x.get("批次", ""), int(x.get("序号") or 0)))]
     return (not waiting or waiting[0] == tid) and _running() < limit, limit
 
 
@@ -836,7 +861,8 @@ def send_batch(ids):
                             t["等待"] = False
                             t.update({"request_id": str(r["data"]["taskId"]), "状态": "queued", "提交": time.time(), "提示": None})
                 if r is None:
-                    tip = f"本机排队：RunningHub 上已有 {limit} 个在跑，前面的跑完就自动交（这时取消不扣费）"
+                    tip = (f"本机排队：RunningHub 上已有 {limit} 个在跑，前面的跑完就自动交（这时取消不扣费）" if _running() >= limit
+                           else "本机排队：等前面的先交（这时取消不扣费）")
                     if t.get("提示") != tip:
                         t["提示"] = tip
                         H.save_tasks()
@@ -978,6 +1004,15 @@ def _file_info(output):
     return out
 
 
+def _stage_notify(t, reg, node):
+    """一采（不是成片的那一采）下载好了：发一条系统通知，每一采只发一次。"""
+    label = reg.get("输出", {}).get(node)
+    if not label or node == reg.get("成片") or label in t.get("已通知", []):
+        return
+    t["已通知"] = t.get("已通知", []) + [label]
+    H.notify(t, stage=label)
+
+
 def _try_midway(t, reg, node, info):
     """这一采刚存盘：按消息里的 cos_url 马上下载（视频文件那一项），不等别的采跑完。"""
     if H.MOCK:
@@ -989,6 +1024,7 @@ def _try_midway(t, reg, node, info):
         _fetch(t, reg, node, url, None)
         t["中途取件"] = {**t.get("中途取件", {}), reg["输出"][node]: "已下载"}
         t["提示"] = f"{reg['输出'][node]} 已下载"
+        _stage_notify(t, reg, node)
     except Exception as e:
         t["中途取件"] = {**t.get("中途取件", {}), reg["输出"][node]: f"没下成，跑完再下：{str(e)[:200]}"}
     H.save_tasks()
@@ -1116,6 +1152,8 @@ def _poll_mock(t, reg):
             if nid == reg.get("成片") or not t.get("视频"):
                 t["视频"] = H.posix(p)
             t["提示"] = f"{label} 已下载"
+            if len(t["产出"]) < len(outs):  # 最后一采出来时整条就完成了，由完成通知说
+                _stage_notify(t, reg, nid)
     if len(t["产出"]) >= len(outs):
         _done(t, reg)
 

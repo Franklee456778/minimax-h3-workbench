@@ -70,7 +70,8 @@ README = """MiniMax H3 工作台（{plat}）  版本 {ver}
 数据在哪
   data 文件夹：项目、工作流库、素材缓存、出的片（data/出片）。
   换电脑、换新版本时，把旧的 data 文件夹整个拷到新包里覆盖即可，项目和记录都还在。
-  API Key 不在 data 里（Mac 在系统钥匙串，Windows 是只有本机本账户能解开的加密文件），换电脑要重新填一次。
+  API Key：Mac 存在系统钥匙串，不在 data 里；Windows 存在 data/_缓存/api_key.bin，是加密的，只有这台电脑的这个账户能解开。
+  所以换电脑时不管哪个版本都要重新填一次 Key（Windows 拷过去的那个文件解不开，不会泄露）。
 
 说明
   - 只在本机运行，网页只有这台电脑能打开；生成在 RunningHub 上跑，按 RunningHub 的规则扣费。
@@ -130,6 +131,11 @@ def version():
     return f"{datetime.now():%Y-%m-%d}（{r.stdout.strip() or '未入库'}）"
 
 
+# 成品只带这一个结构模板（Peter 2026-11-12 定）：分段、参考视频可空。≤15 秒只跑 1 段，和单段工作流一样，所以所有镜头都用它。
+# 开发文件夹里的另外两个模板留着（工作流库里老的 ID 还对着它们）。
+PACK_TEMPLATES = ["信_Pika_分段_参考可空"]
+
+
 def copy_app(dst, with_library):
     app = dst / "app"
     app.mkdir(parents=True)
@@ -137,7 +143,7 @@ def copy_app(dst, with_library):
         shutil.copy2(SRC / f, app / f)
     shutil.copytree(SRC / "web", app / "web")
     (app / "RunningHub工作流").mkdir()
-    for f in sorted((SRC / "RunningHub工作流").glob("*.json")):
+    for f in [SRC / "RunningHub工作流" / f"{n}.json" for n in PACK_TEMPLATES]:
         reg = json.loads(f.read_text(encoding="utf-8"))
         if not reg.get("格子"):
             raise SystemExit(f"{f.name} 里没有格子表，不能打包")
@@ -151,7 +157,7 @@ def copy_app(dst, with_library):
     (data / "_缓存" / "设置.json").write_text(json.dumps({"RunningHub要求VPN": False}, ensure_ascii=False), encoding="utf-8")
     lib = []
     if with_library:
-        lib = json.loads((SRC / "工作流库.json").read_text(encoding="utf-8"))
+        lib = [e for e in json.loads((SRC / "工作流库.json").read_text(encoding="utf-8")) if e.get("模板") in PACK_TEMPLATES]
     (data / "工作流库.json").write_text(json.dumps(lib, ensure_ascii=False, indent=1), encoding="utf-8")
     (data / "项目.json").write_text("[]", encoding="utf-8")
 

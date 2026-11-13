@@ -51,6 +51,7 @@ KIND_BY_EXT = {**{e: "image" for e in (".jpg", ".jpeg", ".png", ".webp", ".gif",
                **{e: "video" for e in (".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm")},
                **{e: "audio" for e in (".wav", ".mp3", ".m4a", ".aac", ".flac", ".aif", ".aiff")}}
 TERMINAL = {"completed", "failed", "nsfw", "canceled"}
+MAX_COUNT = 10  # 一次最多生成几条（Peter 2026-11-12 定 10，原来 4）
 
 lock = threading.RLock()
 
@@ -407,7 +408,7 @@ def find_model(endpoint):
 def submit(req):
     """网页点「确认提交」后进来：建任务，后台线程上传素材并提交 N 次。"""
     m, w = find_model(req["endpoint"])
-    count = max(1, min(4, int(req.get("数量", 1))))
+    count = max(1, min(MAX_COUNT, int(req.get("数量", 1))))
     pid = req.get("项目") or None
     if pid and not find_project(pid):
         raise RuntimeError("这个项目已经删掉了")
@@ -471,12 +472,16 @@ NOTIFY_PS = ("Add-Type -AssemblyName System.Windows.Forms; $n = New-Object Syste
              "$n.ShowBalloonTip(6000, $env:H3_T, $env:H3_B, 'Info'); Start-Sleep -Seconds 7; $n.Dispose()")
 
 
-def notify(t):
-    """任务跑完（成功或失败）弹一条系统通知，切到别的窗口也知道。设置里「完成通知」= false 可关。"""
+def notify(t, stage=None):
+    """任务跑完（成功或失败）弹一条系统通知，切到别的窗口也知道；一采这类中间结果先下载好了也发一条（stage = 那一采的名字）。
+    设置里「完成通知」= false 可关。"""
     if not load_json(SETTINGS_FILE, {}).get("完成通知", True):
         return
     ok = t["状态"] == "completed"
-    title = f"{'✓ 生成完成' if ok else '✗ ' + {'failed': '生成失败', 'nsfw': '被内容审核拦下', 'canceled': '已取消'}.get(t['状态'], t['状态'])}"
+    if stage:
+        title = f"✓ {stage} 已下载，可以先看"
+    else:
+        title = f"{'✓ 生成完成' if ok else '✗ ' + {'failed': '生成失败', 'nsfw': '被内容审核拦下', 'canceled': '已取消'}.get(t['状态'], t['状态'])}"
     body = f"{t.get('前缀', '')} · {t.get('方式', '')}" + (f"（第 {t['序号']}/{t['数量']} 条）" if t.get("数量", 1) > 1 else "")
     if t.get("演示"):
         title += "（演示）"
@@ -485,22 +490,30 @@ def notify(t):
         if MAC:
             subprocess.Popen(["osascript", "-e", NOTIFY_SCRIPT, title, body], **quiet)
         elif WIN:  # 标题和正文经环境变量传，不拼进命令里
-            subprocess.Popen(["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", NOTIFY_PS],
+            subprocess.Popen([win_tool("powershell"), "-NoProfile", "-WindowStyle", "Hidden", "-Command", NOTIFY_PS],
                              env={**os.environ, "H3_T": title, "H3_B": body}, creationflags=0x08000000, **quiet)
     except Exception:
         pass
+
+
+def win_tool(name):
+    """Windows 自带程序用完整路径调用：只写名字的话，系统会先在程序自己的文件夹和当前文件夹里找同名 .exe。"""
+    root = os.environ.get("SystemRoot") or r"C:\Windows"
+    return {"powershell": os.path.join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+            "explorer": os.path.join(root, "explorer.exe")}[name]
 
 
 def reveal(p):
     """在访达 / 资源管理器里打开文件夹，或选中文件。"""
     p = Path(p)
     if MAC:
-        subprocess.run(["open", str(p)] if p.is_dir() else ["open", "-R", str(p)])
+        # 带扩展名的文件夹（.app、.pkg、.prefPane 这类「包」）只在访达里选中，不「打开」：打开它们等于运行或安装
+        subprocess.run(["open", str(p)] if p.is_dir() and not p.suffix else ["open", "-R", str(p)])
     elif WIN:
         if p.is_dir():
             os.startfile(str(p))
         else:
-            subprocess.run(["explorer", "/select,", str(p)])
+            subprocess.run([win_tool("explorer"), "/select,", str(p)])
     else:
         subprocess.run(["xdg-open", str(p if p.is_dir() else p.parent)])
 
@@ -515,7 +528,7 @@ def pick_folder():
         r = subprocess.run(["osascript", "-e", 'POSIX path of (choose folder with prompt "选择出片文件夹")'],
                            capture_output=True, text=True)
     elif WIN:
-        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", PICK_PS], capture_output=True, text=True,
+        r = subprocess.run([win_tool("powershell"), "-NoProfile", "-STA", "-Command", PICK_PS], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", creationflags=0x08000000)
     else:
         return None
@@ -807,6 +820,12 @@ class Handler(BaseHTTPRequestHandler):
                 if p.exists():
                     reveal(p)
                 return self.json({"ok": True})
+            if u.path == "/api/quit":  # 网页上的「退出工作台」：回完话再停，停了就不再连 RunningHub
+                with lock:
+                    save_tasks()
+                self.json({"ok": True})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             if u.path == "/api/pick-folder":
                 picked = pick_folder()
                 if picked:
@@ -886,6 +905,8 @@ def main():
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    srv.server_close()
+    print("工作台已退出。这个窗口可以关掉了。")
 
 
 if __name__ == "__main__":
