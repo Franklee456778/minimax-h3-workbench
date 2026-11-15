@@ -77,22 +77,29 @@ README = """MiniMax H3 工作台（{plat}）  版本 {ver}
   - 只在本机运行，网页只有这台电脑能打开；生成在 RunningHub 上跑，按 RunningHub 的规则扣费。
   - 每次提交前都有确认框。
   - 包里带的 Python、FFmpeg 的来源和许可见 runtime/LICENSES.txt。
+  - FFmpeg 按 GPL v3 授权：三年内可以免费索取它这次构建的完整源码，索取方式见 runtime/LICENSES.txt 里的「源码书面承诺」。
 """
 
-LICENSES = """这个包里带的第三方软件
+LICENSES = """这个包里带的第三方软件（许可原文在 runtime/许可原文/ 和下面写的位置）
 
-Python {py}（python-build-standalone 打的免安装版）
-  来源：https://github.com/astral-sh/python-build-standalone （release 20261110）
-  许可：PSF License（runtime/python 里有 LICENSE 文件）
+1. Python {py}（python-build-standalone 打的免安装版）
+   来源：https://github.com/astral-sh/python-build-standalone （release 20261110）
+   许可：PSF License，原文 {pylic}
+   Python 里编进去的库：OpenSSL 3.5（Apache-2.0）、libffi（MIT）、expat（MIT）、zlib（zlib）、
+     libmpdec（BSD-2-Clause）、xz/liblzma（0BSD）、bzip2（bzip2 许可）、SQLite（公有领域，无需署名）、
+     Tcl/Tk（Tcl/Tk 许可）{extra}
+   以上许可原文：runtime/许可原文/Python-第三方组件许可.txt、bzip2-Tcl-Tk许可.txt、xz-0BSD.txt{msvc}
 
-FFmpeg 9.0（GPL 版，含 x264）
-  来源：{ff}
-  许可：GNU GPL v3。FFmpeg 的源码：https://ffmpeg.org/download.html ；
-        Windows 版的构建脚本和对应源码版本：https://github.com/BtbN/FFmpeg-Builds
-  工作台只是把 ffmpeg 当成独立程序来调用（转素材格式、做缩略图），没有和它链接在一起。
+2. FFmpeg 9.0（GPL 版，含 x264、x265 等编码库；没有 nonfree 部分）
+   来源：{ff}
+   许可：GNU GPL v3，全文 runtime/FFmpeg-LICENSE.txt
+   源码：FFmpeg 官方 https://ffmpeg.org/download.html ；本构建的配置和各依赖库版本：{ffsrc}
+   工作台只是把 ffmpeg 当成独立程序来调用（转素材格式、做缩略图），没有和它链接在一起，工作台本身的代码不受 GPL 约束。
 
-websockets 17.1    https://pypi.org/project/websockets/   BSD-3-Clause
-certifi 2026.10.23 https://pypi.org/project/certifi/      MPL-2.0
+{offer}
+
+3. websockets 17.1    https://pypi.org/project/websockets/   BSD-3-Clause，原文 runtime/lib/websockets-17.1.dist-info/licenses/LICENSE
+4. certifi 2026.10.23 https://pypi.org/project/certifi/      MPL-2.0，原文 runtime/lib/certifi-2026.10.23.dist-info/licenses/LICENSE（未修改，源码就是包里的文件）
 """
 
 
@@ -135,9 +142,10 @@ def version():
     return f"v{m.group(1)}（{datetime.now():%Y-%m-%d} 打包）"
 
 
-# 成品只带这一个结构模板（Peter 2026-11-12 定）：分段、参考视频可空。≤15 秒只跑 1 段，和单段工作流一样，所以所有镜头都用它。
-# 开发文件夹里的另外两个模板留着（工作流库里老的 ID 还对着它们）。
-PACK_TEMPLATES = ["信_Pika_分段_参考可空"]
+# 成品带的结构模板：分段、参考视频可空。≤15 秒只跑 1 段，和单段工作流一样，所以所有镜头都用它（Peter 2026-11-12 定）。
+# v1.1 加 7 段版（每段仍 ≤15 秒，最长 90 秒；Peter 2026-11-14 定）；3 段版留着，v1.0 时部署的 3 段工作流 ID 照样能用。
+# 窗口按云端节点自动认是哪一个。开发文件夹里的另外两个模板留着（工作流库里老的 ID 还对着它们）。
+PACK_TEMPLATES = ["信_Pika_分段_参考可空", "信_Pika_分段7_参考可空"]
 
 
 def copy_app(dst, with_library):
@@ -164,6 +172,36 @@ def copy_app(dst, with_library):
         lib = [e for e in json.loads((SRC / "工作流库.json").read_text(encoding="utf-8")) if e.get("模板") in PACK_TEMPLATES]
     (data / "工作流库.json").write_text(json.dumps(lib, ensure_ascii=False, indent=1), encoding="utf-8")
     (data / "项目.json").write_text("[]", encoding="utf-8")
+
+
+# FFmpeg 源码的书面承诺（GPL v3 第 6 条；Peter 2026-11-12 定用这种方式）。索取渠道用公开仓库的 Issues，不写个人联系方式。
+OFFER_CONTACT = "https://github.com/Franklee456778/minimax-h3-workbench/issues"
+SOURCE_OFFER = """   【源码书面承诺】
+   本包里的 FFmpeg 程序按 GNU GPL v3 授权。自你收到本包之日起三年内（只要我们还在提供本软件或对它的支持，期限相应延长），
+   任何持有本包的人都可以向我们索取这次构建对应的完整源码（FFmpeg 本身、编进去的各个库的源码和构建脚本），
+   我们免费提供下载；如需光盘、U 盘等实物，只收介质和寄送的成本费。
+   索取方式：在 {contact} 新建一个 Issue，写明「索取 FFmpeg 源码」和你用的是 {plat}。
+   这次构建：{build}
+   在此之前也可以先从上游取：{upstream}
+
+   [Written offer] The FFmpeg binaries in this package are licensed under the GNU GPL v3. For at least three years from
+   the date you received this package, anyone who has it may request the complete Corresponding Source for this build
+   (FFmpeg, the libraries compiled into it, and the build scripts), free of charge as a download, or on physical media
+   for no more than the cost of the media and shipping. Request it by opening an issue at {contact}.
+   Build: {build_en}
+"""
+
+
+LIC_DIR = HERE / "许可原文"  # 第三方许可原文（文字文件，进 git）：CPython 第三方组件、bzip2/Tcl/Tk、xz、GPLv3
+
+
+def add_licenses(rt, gpl=True):
+    d = rt / "许可原文"
+    d.mkdir(parents=True, exist_ok=True)
+    for f in ("Python-第三方组件许可.txt", "bzip2-Tcl-Tk许可.txt", "xz-0BSD.txt"):
+        shutil.copy2(LIC_DIR / f, d / f)
+    if gpl:
+        shutil.copy2(LIC_DIR / "GPL-3.0.txt", rt / "FFmpeg-LICENSE.txt")
 
 
 def add_libs(rt):
@@ -193,7 +231,16 @@ def build_mac(ver, with_library):
             zf.extractall(ff)
     for f in ff.iterdir():
         f.chmod(0o755)
-    (rt / "LICENSES.txt").write_text(LICENSES.format(py="3.13.18", ff="https://ffmpeg.martin-riedl.de （macOS arm64，9.0.2）"), encoding="utf-8")
+    add_licenses(rt)
+    (rt / "LICENSES.txt").write_text(LICENSES.format(
+        py="3.13.18", pylic="runtime/python/lib/python3.13/LICENSE.txt",
+        extra="、libedit（BSD-3-Clause，readline 模块用）、ncurses（MIT 风格）——这两个的许可原文 python-build-standalone 的精简版没带，见 https://thrysoee.dk/editline/ 和 https://invisible-island.net/ncurses/",
+        msvc="",
+        ff="https://ffmpeg.martin-riedl.de （macOS arm64，9.0.2）", ffsrc="https://ffmpeg.martin-riedl.de",
+        offer=SOURCE_OFFER.format(contact=OFFER_CONTACT, plat="Mac 版",
+                                  build="FFmpeg 9.0.2 正式版，martin-riedl.de 的 macOS arm64 构建（2026-09-20）",
+                                  build_en="FFmpeg 9.0.2 release, macOS arm64 build by martin-riedl.de (2026-09-20)",
+                                  upstream="FFmpeg 9.0.2 源码 https://ffmpeg.org/releases/ ；构建方式和依赖库 https://ffmpeg.martin-riedl.de")), encoding="utf-8")
     cmd = dst / "启动.command"
     cmd.write_text(MAC_CMD, encoding="utf-8")
     cmd.chmod(0o755)
@@ -221,7 +268,15 @@ def build_win(ver, with_library):
                 (ff / base).write_bytes(zf.read(n))
             elif base == "LICENSE.txt":
                 (rt / "FFmpeg-LICENSE.txt").write_bytes(zf.read(n))
-    (rt / "LICENSES.txt").write_text(LICENSES.format(py="3.13.18", ff="https://github.com/BtbN/FFmpeg-Builds （win64-gpl-shared，n9.0）"), encoding="utf-8")
+    add_licenses(rt, gpl=False)  # Windows 的 GPL 全文在解压 FFmpeg 时已经放好（FFmpeg-LICENSE.txt）
+    (rt / "LICENSES.txt").write_text(LICENSES.format(
+        py="3.13.18", pylic="runtime/python/LICENSE.txt", extra="",
+        msvc="\n   微软 Visual C++ 运行库（vcruntime140.dll 等）：按微软「可再发行代码」条款随 Python 一起分发，条款见 runtime/python/LICENSE.txt",
+        ff="https://github.com/BtbN/FFmpeg-Builds （win64-gpl-shared，n9.0）", ffsrc="https://github.com/BtbN/FFmpeg-Builds",
+        offer=SOURCE_OFFER.format(contact=OFFER_CONTACT, plat="Windows 版",
+                                  build="FFmpeg n9.0.2-49-gc179411bbb（release/9.0 分支），BtbN/FFmpeg-Builds 的 win64-gpl-shared 自动构建（2026-11-11）",
+                                  build_en="FFmpeg n9.0.2-49-gc179411bbb (release/9.0 branch), BtbN/FFmpeg-Builds win64-gpl-shared autobuild (2026-11-11)",
+                                  upstream="FFmpeg 源码 https://git.ffmpeg.org/ffmpeg.git 的提交 c179411bbb ；构建脚本和依赖库版本 https://github.com/BtbN/FFmpeg-Builds")), encoding="utf-8")
     (dst / "启动.bat").write_bytes(WIN_BAT.replace("\n", "\r\n").encode("ascii"))
     first = "     如果弹出「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」。防火墙问是否允许，选允许（只在本机用）。"
     (dst / "使用说明.txt").write_bytes(("﻿" + README.format(plat="Windows 版，64 位", ver=ver, launcher="启动.bat", first=first)).replace("\n", "\r\n").encode("utf-8"))
