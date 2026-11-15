@@ -786,7 +786,7 @@ function renderGen(){
   $('hint').innerHTML = pr.length ? esc(pr.join('；'))
     : stray.length ? `提示词里的 ${esc(stray.join(' '))} 没有对应的素材${fixable ? `（${esc(model().名称)} 的写法是 ${esc(fmtTag('image', 1))}）<button class="ghost" style="margin-left:8px;padding:2px 9px;font-size:12px" data-act="convertTags">一键改写法</button>` : ''}`
     : e.each == null ? esc(`${S.count > 1 ? S.count + ' 条，' : ''}按 RunningHub 机器运行时长扣 RH 币，跑完在任务详情里看耗时；空着的格子会自动关掉`)
-    : esc(`${S.count > 1 ? S.count + ' 条 × ' : ''}每条约 $${e.each.toFixed(2)}（按当前折扣 ${S.cfg.当前折扣} 估，实际以 Higgsfield 账单为准；失败不扣费）`);
+    : esc(`${S.count > 1 ? S.count + ' 条 × ' : ''}每条约 $${e.each.toFixed(2)}（按当前折扣 ${S.cfg.当前折扣} 估，实际以平台账单为准；失败不扣费）`);
   $('genNote').textContent = S.st.演示 ? '演示模式：不连 RunningHub、不扣费' : '点了会先让你确认';
   $('prompt').placeholder = `描述画面，用 @ 引用素材（${fmtTag('image', 1)} 是第一张参考图）`;
 }
@@ -1097,7 +1097,7 @@ $('genBtn').onclick = () => {
     <tr><td>数量</td><td>${S.count} 条</td></tr>
     <tr><td>存到</td><td>${esc(dir)}/<br>${outLine}</td></tr>
     <tr><td>预计</td><td><span class="cost">${rhx ? '按机器运行时长扣 RH 币' : `约 $${(e.each * S.count).toFixed(2)}`}</span></td></tr></table>
-    <div class="small">${rhx ? '没放素材的格子会传占位文件并关掉开关。跑的过程中随时能取消，但取消后还没下载的那一采就拿不到了。' : `估价按 models.json 里的价格和折扣 ${S.cfg.当前折扣} 算，实际以 Higgsfield 账单为准。失败、被内容审核拦下的不扣费。`}</div>
+    <div class="small">${rhx ? '没放素材的格子会传占位文件并关掉开关。跑的过程中随时能取消，但取消后还没下载的那一采就拿不到了。' : `估价按 models.json 里的价格和折扣 ${S.cfg.当前折扣} 算，实际以平台账单为准。失败、被内容审核拦下的不扣费。`}</div>
     <div class="btns"><button data-x="no">取消</button><button class="go" data-x="go">${S.st.演示 ? '提交（演示）' : '确认提交，会扣费'}</button></div></div>`;
   document.body.appendChild(bg);
   bg.onclick = async ev => {

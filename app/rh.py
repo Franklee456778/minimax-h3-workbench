@@ -595,6 +595,9 @@ def seg_frames(reg, p):
         if T <= cap:
             return cap
         n = -(-(T - ctx) // (cap - ctx))
+        # v1.1：总时长超过「最多段数 × 上限」（3 段 = 43 秒）时，不再报错，按最多段数均分、每段放长（90 秒 → 每段约 30.7 秒；
+        # Peter 2026-10-27 说单段最长可到 35 秒）。43 秒以内和 v1.0 完全一样
+        n = min(n, sp.get("最多", 3))
         L = -(-(T - ctx) // n) + ctx
         return L + (5 - L % 17) % 17
     try:

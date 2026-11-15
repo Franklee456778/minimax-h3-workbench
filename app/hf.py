@@ -41,7 +41,7 @@ PROJECTS_FILE = DATA / "项目.json"
 WIN, MAC = sys.platform == "win32", sys.platform == "darwin"
 
 PORT = int(os.environ.get("H3_PORT") or 8790)  # 8765 是 05-电影 预演服务器在用；H3_PORT 可以临时换端口
-VERSION = "1.0"  # 版本号：每次给别人发新包前加一（1.1、1.2…），界面左下角、使用说明、启动提示都读这里
+VERSION = "1.1"  # 版本号：每次给别人发新包前加一（1.1、1.2…），界面左下角、使用说明、启动提示都读这里
 UA = f"h3-workbench/{VERSION}"
 MOCK = "--演示" in sys.argv
 
