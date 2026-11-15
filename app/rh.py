@@ -391,6 +391,10 @@ def template_problems(reg, data):
            and data[str(s["开关节点"])].get("class_type") != "ComfySwitchNode"]
     if bad:
         out.append("这些格子的开关节点类型不对：" + "、".join(bad))
+    # 识别节点（v1.1 加）：{节点号: 类型}，这一版结构独有的节点；节点号和类型都对上才算这个结构
+    odd = [f"{n} 号（要 {t}）" for n, t in reg.get("识别节点", {}).items() if (data.get(str(n)) or {}).get("class_type") != t]
+    if odd:
+        out.append("这些识别节点对不上：" + "、".join(odd))
     return out
 
 
@@ -401,8 +405,8 @@ def match_template(data, prefer=None):
         regs = [r for r in regs if r["_文件"][:-5] == prefer] or regs
     scored = [(template_problems(r, data), len(_reg_nodes(r)), r) for r in regs]
     ok = [x for x in scored if not x[0]]
-    if ok:
-        return max(ok, key=lambda x: x[1])[2], []
+    if ok:  # 先比识别节点对上几个（新版结构靠它和老版区分），再比要改的节点多少
+        return max(ok, key=lambda x: (len(x[2].get("识别节点", {})), x[1]))[2], []
     if not scored:
         odd = [f.name for f in REG_DIR.glob("*.json")]
         raise RuntimeError("程序文件夹 app/RunningHub工作流 里没有结构模板"
