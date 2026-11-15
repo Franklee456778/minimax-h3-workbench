@@ -690,6 +690,14 @@ function problems(){
       if (!prompt.includes(t)) bad.push(`${SLOT[f.kind] || f.label}${i + 1} 放了 ${S.assets[id]?.名字 || id}，但提示词里没有 ${t}`);
     });
     if (bad.length) out.push(bad.join('；') + '。没定义的格子模型会自己拿去用：要用就在提示词里定义，不用就清空');
+    // 反过来：提示词里写了 <Video 1>，参考视频 1 却是空的——模型拿不到，那句就落空了
+    const miss = [];
+    for (const f of mediaFields()) if (f.isRef){
+      const n = (S.assign[f.field] || []).length, kind = (model().标签类型 || {})[f.kind];
+      const seen = new Set([...prompt.matchAll(new RegExp(`<${kind} (\\d+)>`, 'g'))].map(m => +m[1]));
+      [...seen].sort((a, b) => a - b).forEach(k => { if (k > n) miss.push(`<${kind} ${k}>（${SLOT[f.kind] || f.label}${k} 是空的）`); });
+    }
+    if (miss.length) out.push('提示词里写了 ' + miss.join('、') + '：模型拿不到这几个素材。放上素材，或者把提示词里这几处删掉');
   }
   const any = sc.至少一项 || [];
   if (any.length && !any.some(k => (S.assign[k] || []).length)) out.push('至少放一个参考素材（' + any.map(k => FIELDNAME[k] || k).join(' / ') + '）');
@@ -726,7 +734,8 @@ function renderMedia(){
   let h = '';
   for (const f of fs){
     const ids = S.assign[f.field] || [];
-    const flag = f.required ? '<em>必填</em>' : f.anyOf ? '<em>任选其一</em>' : '';
+    const optTip = (wf().不放时 || {})[f.field];
+    const flag = f.required ? '<em>必填</em>' : f.anyOf ? '<em>任选其一</em>' : optTip ? `<em title="${esc(optTip)}">可不放</em>` : '';
     let row = ids.map((id, i) => tileHTML(id, tagFor(f, i), f.field)).join('');
     row += S.pending.filter(p => p.field === f.field).map(pendHTML).join('');
     if (!f.multi && !ids.length) row += `<div class="tile slot${f.required ? ' req' : ''}" data-act="pickInto" data-field="${f.field}">${I.plus}<span>${esc(f.label)}</span></div>`;
@@ -1093,6 +1102,8 @@ $('genBtn').onclick = () => {
     <tr><td>模型</td><td>${esc(m.名称)} · ${esc(w.名称)}<br><small style="color:var(--tx3)">${esc(w.endpoint)}</small></td></tr>
     <tr><td>参数</td><td>${esc(shown)}${w.时长跟源视频 ? ' · 时长跟源视频' : ''}</td></tr>
     ${mediaRows}
+    ${mediaFields().filter(f => !(S.assign[f.field] || []).length && (w.不放时 || {})[f.field]).map(f =>
+      `<tr><td>${esc(f.label)}</td><td><span style="color:var(--tx3)">${esc(w.不放时[f.field])}</span></td></tr>`).join('')}
     <tr><td>提示词</td><td><div class="pp">${esc(prompt) || '<i>（无）</i>'}</div></td></tr>
     <tr><td>数量</td><td>${S.count} 条</td></tr>
     <tr><td>存到</td><td>${esc(dir)}/<br>${outLine}</td></tr>
@@ -1272,6 +1283,25 @@ async function pollTasks(){
     if (S.view === 'project'){ const el = document.querySelector('.pstats'), h = projStats(S.pid); if (el){ if (el.outerHTML !== h) el.outerHTML = h; } else if (h) $('viewHead').insertAdjacentHTML('beforeend', h); }
     renderGuide();
   } catch {}
+  checkHandoff();
+}
+// Claude（MCP）放进生成框的设置：问一句再换上；提交还是要在这里点「生成」→「确认提交」
+async function checkHandoff(){
+  if (S.hoBusy || !S.st || !S.st.MCP) return;  // 给别人的包没有 MCP，不去问
+  let list; try { list = await api('/api/handoff'); } catch { return; }
+  if (!list.length) return;
+  S.hoBusy = true;
+  try {
+    const h = list[0], pj = h.项目 ? project(h.项目) : null;
+    const ok = await confirmBox('Claude 准备好了一组设置', `${h.说明 ? esc(h.说明) + '<br><br>' : ''}放进${pj ? `「${esc(pj.名称)}」的` : '首页的'}生成框？生成框里现在写的内容会被换掉。<br>放进去后核对一遍，要跑再点「生成」。`, '放进生成框');
+    await api(`/api/handoff/${h.id}/take`, {});
+    if (!ok) return;
+    location.hash = pj ? '#/p/' + pj.id : '#/home';
+    await route();
+    await loadForm(h.表单); window.scrollTo({top:0, behavior:'smooth'});
+    toast('已放进生成框：核对后点「生成」');
+  } catch (err){ toast(err.message, true); }
+  finally { S.hoBusy = false; }
 }
 function updateTitle(){
   const run = S.tasks.filter(t => !DONE.includes(t.状态)).length;

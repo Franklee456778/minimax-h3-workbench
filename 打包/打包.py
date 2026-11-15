@@ -16,6 +16,7 @@
 运行文件放在 下载/（不进 git，来源见 runtime/LICENSES.txt）；成品在 成品/。
 """
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -133,27 +134,34 @@ def verify_downloads():
             raise SystemExit(f"{name} 的校验值对不上，文件可能被换过或没下完整，没有打包")
 
 
+# 给别人的版本号（Peter 2026-11-15 定）：开发文件夹是 Peter 自己用的 v1.2（带 MCP）；包是 v1.3 = v1.2 去掉 MCP。
+# 打包时写进包里的 hf.py（界面左下角、启动提示读它）。以后发新包就把这里加一，再打 git 标签 H3工作台-vX.Y。
+PACK_VERSION = "1.3"
+
+
 def version():
-    """版本号读 hf.py 里的 VERSION（界面左下角显示的也是它），后面跟打包日期。"""
-    import re
-    m = re.search(r'^VERSION = "([^"]+)"', (SRC / "hf.py").read_text(encoding="utf-8"), re.M)
-    if not m:
-        raise SystemExit("hf.py 里找不到 VERSION，不能打包")
-    return f"v{m.group(1)}（{datetime.now():%Y-%m-%d} 打包）"
+    return f"v{PACK_VERSION}（{datetime.now():%Y-%m-%d} 打包）"
 
 
 # 成品带的结构模板：分段、参考视频可空。≤15 秒只跑 1 段，和单段工作流一样，所以所有镜头都用它（Peter 2026-11-12 定）。
 # v1.1 加 7 段版（每段仍 ≤15 秒，最长 90 秒；Peter 2026-11-14 定）；3 段版留着，v1.0 时部署的 3 段工作流 ID 照样能用。
 # 窗口按云端节点自动认是哪一个。开发文件夹里的另外两个模板留着（工作流库里老的 ID 还对着它们）。
 # 7 段 v2（2026-11-14）：网页上不用参考视频1 时关掉加载节点就行，各段自动跳过；窗口按「识别节点」把它和 v1 分开。
-PACK_TEMPLATES = ["信_Pika_分段_参考可空", "信_Pika_分段7_参考可空", "信_Pika_分段7v2_空格可关"]
+# 7 段 v3（2026-11-15）：锁定声音、参考视频都可以不放（组外入口开关 #673/#676）；网页上任何输入组整组关掉都不报错。
+PACK_TEMPLATES = ["信_Pika_分段_参考可空", "信_Pika_分段7_参考可空", "信_Pika_分段7v2_空格可关", "信_Pika_分段7v3_整组可关"]
 
 
 def copy_app(dst, with_library):
     app = dst / "app"
     app.mkdir(parents=True)
-    for f in ("hf.py", "rh.py"):
-        shutil.copy2(SRC / f, app / f)
+    shutil.copy2(SRC / "rh.py", app / "rh.py")
+    # 给别人的包不带 MCP（Peter 2026-11-15 定：MCP 只留在自己的开发版 v1.2 里）：不放 h3_mcp.py，hf.py 里 MCP 关掉、版本号换成包的版本号
+    hf = (SRC / "hf.py").read_text(encoding="utf-8")
+    hf, n1 = re.subn(r'^MCP = True\b', "MCP = False", hf, count=1, flags=re.M)
+    hf, n2 = re.subn(r'^VERSION = "[^"]+"', f'VERSION = "{PACK_VERSION}"', hf, count=1, flags=re.M)
+    if n1 != 1 or n2 != 1:
+        raise SystemExit("hf.py 里找不到 MCP = True 或 VERSION，不能打包")
+    (app / "hf.py").write_text(hf, encoding="utf-8")
     shutil.copytree(SRC / "web", app / "web")
     (app / "RunningHub工作流").mkdir()
     for f in [SRC / "RunningHub工作流" / f"{n}.json" for n in PACK_TEMPLATES]:

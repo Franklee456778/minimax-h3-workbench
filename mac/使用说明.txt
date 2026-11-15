@@ -1,4 +1,4 @@
-MiniMax H3 工作台（Mac 版，Apple 芯片）  版本 v1.0（2026-11-12 打包）
+MiniMax H3 工作台（Mac 版，Apple 芯片）  版本 v1.3（2026-11-15 打包）
 
 怎么用
   1. 把整个文件夹放到一个你有写权限的地方（桌面、文档、移动硬盘都行），不用安装。
@@ -20,3 +20,4 @@ MiniMax H3 工作台（Mac 版，Apple 芯片）  版本 v1.0（2026-11-12 打�
   - 只在本机运行，网页只有这台电脑能打开；生成在 RunningHub 上跑，按 RunningHub 的规则扣费。
   - 每次提交前都有确认框。
   - 包里带的 Python、FFmpeg 的来源和许可见 runtime/LICENSES.txt。
+  - FFmpeg 按 GPL v3 授权：三年内可以免费索取它这次构建的完整源码，索取方式见 runtime/LICENSES.txt 里的「源码书面承诺」。

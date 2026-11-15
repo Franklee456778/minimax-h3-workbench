@@ -1,14 +1,33 @@
-这个包里带的第三方软件
+这个包里带的第三方软件（许可原文在 runtime/许可原文/ 和下面写的位置）
 
-Python 3.13.18（python-build-standalone 打的免安装版）
-  来源：https://github.com/astral-sh/python-build-standalone （release 20261110）
-  许可：PSF License（runtime/python 里有 LICENSE 文件）
+1. Python 3.13.18（python-build-standalone 打的免安装版）
+   来源：https://github.com/astral-sh/python-build-standalone （release 20261110）
+   许可：PSF License，原文 runtime/python/lib/python3.13/LICENSE.txt
+   Python 里编进去的库：OpenSSL 3.5（Apache-2.0）、libffi（MIT）、expat（MIT）、zlib（zlib）、
+     libmpdec（BSD-2-Clause）、xz/liblzma（0BSD）、bzip2（bzip2 许可）、SQLite（公有领域，无需署名）、
+     Tcl/Tk（Tcl/Tk 许可）、libedit（BSD-3-Clause，readline 模块用）、ncurses（MIT 风格）——这两个的许可原文 python-build-standalone 的精简版没带，见 https://thrysoee.dk/editline/ 和 https://invisible-island.net/ncurses/
+   以上许可原文：runtime/许可原文/Python-第三方组件许可.txt、bzip2-Tcl-Tk许可.txt、xz-0BSD.txt
 
-FFmpeg 9.0（GPL 版，含 x264）
-  来源：https://ffmpeg.martin-riedl.de （macOS arm64，9.0.2）
-  许可：GNU GPL v3。FFmpeg 的源码：https://ffmpeg.org/download.html ；
-        Windows 版的构建脚本和对应源码版本：https://github.com/BtbN/FFmpeg-Builds
-  工作台只是把 ffmpeg 当成独立程序来调用（转素材格式、做缩略图），没有和它链接在一起。
+2. FFmpeg 9.0（GPL 版，含 x264、x265 等编码库；没有 nonfree 部分）
+   来源：https://ffmpeg.martin-riedl.de （macOS arm64，9.0.2）
+   许可：GNU GPL v3，全文 runtime/FFmpeg-LICENSE.txt
+   源码：FFmpeg 官方 https://ffmpeg.org/download.html ；本构建的配置和各依赖库版本：https://ffmpeg.martin-riedl.de
+   工作台只是把 ffmpeg 当成独立程序来调用（转素材格式、做缩略图），没有和它链接在一起，工作台本身的代码不受 GPL 约束。
 
-websockets 17.1    https://pypi.org/project/websockets/   BSD-3-Clause
-certifi 2026.10.23 https://pypi.org/project/certifi/      MPL-2.0
+   【源码书面承诺】
+   本包里的 FFmpeg 程序按 GNU GPL v3 授权。自你收到本包之日起三年内（只要我们还在提供本软件或对它的支持，期限相应延长），
+   任何持有本包的人都可以向我们索取这次构建对应的完整源码（FFmpeg 本身、编进去的各个库的源码和构建脚本），
+   我们免费提供下载；如需光盘、U 盘等实物，只收介质和寄送的成本费。
+   索取方式：在 https://github.com/Franklee456778/minimax-h3-workbench/issues 新建一个 Issue，写明「索取 FFmpeg 源码」和你用的是 Mac 版。
+   这次构建：FFmpeg 9.0.2 正式版，martin-riedl.de 的 macOS arm64 构建（2026-09-20）
+   在此之前也可以先从上游取：FFmpeg 9.0.2 源码 https://ffmpeg.org/releases/ ；构建方式和依赖库 https://ffmpeg.martin-riedl.de
+
+   [Written offer] The FFmpeg binaries in this package are licensed under the GNU GPL v3. For at least three years from
+   the date you received this package, anyone who has it may request the complete Corresponding Source for this build
+   (FFmpeg, the libraries compiled into it, and the build scripts), free of charge as a download, or on physical media
+   for no more than the cost of the media and shipping. Request it by opening an issue at https://github.com/Franklee456778/minimax-h3-workbench/issues.
+   Build: FFmpeg 9.0.2 release, macOS arm64 build by martin-riedl.de (2026-09-20)
+
+
+3. websockets 17.1    https://pypi.org/project/websockets/   BSD-3-Clause，原文 runtime/lib/websockets-17.1.dist-info/licenses/LICENSE
+4. certifi 2026.10.23 https://pypi.org/project/certifi/      MPL-2.0，原文 runtime/lib/certifi-2026.10.23.dist-info/licenses/LICENSE（未修改，源码就是包里的文件）

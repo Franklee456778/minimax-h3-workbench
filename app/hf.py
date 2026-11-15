@@ -41,7 +41,8 @@ PROJECTS_FILE = DATA / "项目.json"
 WIN, MAC = sys.platform == "win32", sys.platform == "darwin"
 
 PORT = int(os.environ.get("H3_PORT") or 8790)  # 8765 是 05-电影 预演服务器在用；H3_PORT 可以临时换端口
-VERSION = "1.1"  # 版本号：每次给别人发新包前加一（1.1、1.2…），界面左下角、使用说明、启动提示都读这里
+VERSION = "1.3"  # 版本号：每次给别人发新包前加一（1.1、1.2…），界面左下角、使用说明、启动提示都读这里
+MCP = False  # 给 Claude 用的 MCP 接口（/api/check、/api/handoff）。打包给别人的版本由 打包.py 改成 False（Peter 2026-11-15 定：MCP 只留给自己用）
 UA = f"h3-workbench/{VERSION}"
 MOCK = "--演示" in sys.argv
 
@@ -198,6 +199,7 @@ def ingest(name, src):
 # ---------- 任务 ----------
 
 tasks = {}  # 本地任务号 → 任务
+handoffs = []  # MCP「放进生成框」：Claude 准备好的一组设置，等网页取走（只在内存里；网页上确认后才放进生成框，提交仍要人点）
 
 
 def fav_files(t):
@@ -691,9 +693,11 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/state":
                 s = load_json(SETTINGS_FILE, {})
                 return self.json({"有RH密钥": rh.has_key(), "密钥存放": rh.key_place(), "演示": MOCK,
-                                  "输出目录": s.get("输出目录", posix(DEFAULT_OUT)), "系统": "win" if WIN else "mac" if MAC else "other", "版本": VERSION})
+                                  "输出目录": s.get("输出目录", posix(DEFAULT_OUT)), "系统": "win" if WIN else "mac" if MAC else "other", "版本": VERSION, "MCP": MCP})
             if u.path == "/api/snippets":
                 return self.json(load_json(SNIPPETS_FILE, []))
+            if u.path == "/api/handoff" and MCP:
+                return self.json(handoffs)
             if u.path == "/api/account":
                 return self.json(rh.account() if rh.has_key() and not MOCK else None)
             if u.path == "/api/workflows":
@@ -748,6 +752,24 @@ class Handler(BaseHTTPRequestHandler):
                     tmp.unlink(missing_ok=True)
             if u.path == "/api/submit":
                 return self.json({"任务": submit(self.body())})
+            if u.path == "/api/handoff" and MCP:  # MCP 放进生成框：网页下一次轮询时问 Peter 要不要换上
+                b = self.body()
+                if not isinstance(b.get("表单"), dict) or not b["表单"].get("endpoint"):
+                    raise RuntimeError("表单不完整")
+                find_model(b["表单"]["endpoint"])
+                if b.get("项目") and not find_project(b["项目"]):
+                    raise RuntimeError("没有这个项目")
+                item = {"id": uuid.uuid4().hex[:8], "表单": b["表单"], "项目": b.get("项目") or None,
+                        "说明": str(b.get("说明") or "")[:500], "时间": datetime.now().isoformat(timespec="seconds")}
+                handoffs[:] = [x for x in handoffs if x["项目"] != item["项目"]] + [item]  # 同一个生成框只留最新的一份
+                return self.json(item)
+            m = MCP and re.fullmatch(r"/api/handoff/([0-9a-f]+)/take", u.path)
+            if m:
+                handoffs[:] = [x for x in handoffs if x["id"] != m.group(1)]
+                return self.json({"ok": True})
+            if u.path == "/api/check" and MCP:  # 提交前检查：不建任务、不扣费（MCP 的「检查生成」用）
+                b = self.body()
+                return self.json(rh.dry_run(b, find_model(b["endpoint"])[1]))
             m = re.fullmatch(r"/api/tasks/([^/]+)/cancel", u.path)
             if m:
                 cancel(m.group(1))

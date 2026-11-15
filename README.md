@@ -1,6 +1,13 @@
 # MiniMax H3 工作台（Mac 版 / Windows 版源码）
 
-当前版本：**v1.0**（2026-11-12）。版本号写在 `app/hf.py` 的 `VERSION`，界面左下角、启动提示、使用说明都显示它。
+当前版本：**v1.3**（2026-11-15）。版本号写在 `app/hf.py` 的 `VERSION`，界面左下角、启动提示、使用说明都显示它。
+
+| 版本 | 改了什么 |
+|---|---|
+| v1.3 | 带 7 段 v3 工作流模板：锁定声音、参考视频都可以不放；提示词里写了 `<Picture N>` / `<Video N>` / `<Audio N>` 却没放对应素材时提交前提醒；后台也检查必填的锁定声音 |
+| v1.1 | 总时长上限 90 秒（7 段分段工作流，每段仍 ≤15 秒）；按「识别节点」自动认出 7 段 v1 / v2 |
+| v1.2 | 没有公开发布 |
+| v1.0 | 第一个定版（2026-11-12） |
 
 本机运行的网页工具：在浏览器里放素材、写提示词，把任务提交到 RunningHub 上的 MiniMax H3 工作流，按采下载成片。只听 `127.0.0.1`，不对外提供服务。
 
@@ -13,11 +20,11 @@ Mac 版和 Windows 版的程序代码完全相同（`app/`），只有启动脚�
 | `app/hf.py` | 后台：本机 HTTP 服务、项目、素材、任务、文件读取 |
 | `app/rh.py` | RunningHub 接口：API Key 存取、上传、提交、实时进度、下载 |
 | `app/web/index.html` | 界面（单文件，原生 JS，不加载外部资源） |
-| `app/RunningHub工作流/` | 工作流结构模板（不含 workflowId） |
+| `app/RunningHub工作流/` | 工作流结构模板（不含 workflowId）：3 段、7 段、7 段 v2、7 段 v3 |
 | `mac/启动.command` | Mac 启动脚本（Apple 芯片） |
 | `windows/启动.bat` | Windows 启动脚本（64 位） |
 | `mac/` `windows/` 里的 `使用说明.txt` | 给使用者的说明 |
-| `mac/LICENSES.txt` `windows/LICENSES.txt` | 免安装包里带的第三方软件及许可 |
+| `mac/` `windows/` 里的 `LICENSES.txt`、`FFmpeg-LICENSE.txt`、`许可原文/` | 免安装包里带的第三方软件、许可原文和 FFmpeg 源码书面承诺 |
 | `打包/打包.py` | 生成两个免安装包的脚本（含运行文件的 SHA-256 校验表） |
 
 免安装包里的运行环境（Python 3.13、FFmpeg、websockets、certifi）和 `data/` 数据文件夹不在仓库里。免安装包的结构是：启动脚本和使用说明在最外层，旁边是 `app/`、`runtime/`、`data/`。

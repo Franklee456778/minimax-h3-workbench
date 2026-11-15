@@ -305,6 +305,7 @@ def load_workflows():
         if not reg:
             continue
         reg["_文件"] = f.name
+        reg.setdefault("workflowId", "")  # 包里的模板不带 workflowId（打包时去掉的）；不补上的话，演示模式、库是空的时候提交会报 KeyError
         slots = reg.get("格子")  # 格子表写在模板里，换电脑也能用；老模板从本地工作流的 extra.YZ_可空槽 读
         if not slots:
             local = H.load_json(reg.get("本地工作流", ""), None)
@@ -371,6 +372,8 @@ def _reg_nodes(reg):
         add(n, label + "存盘")
     for sl in reg.get("_格子", []):
         add(sl.get("同开关", []), sl["名字"] + "的分段开关")
+        if sl.get("入口开关"):
+            add(sl["入口开关"], sl["名字"] + "的入口开关")
     return need
 
 
@@ -522,7 +525,7 @@ def as_model():
         problem = reg.get("_问题") or ("还没添加工作流 ID：到左边「工作流」里加一个" if not e["workflowId"] and not H.MOCK else None) \
             or ("；".join(chk["问题"]) if chk.get("问题") else None)
         props, required, names, kinds = {"prompt": {"type": "string", "minLength": 1}}, ["prompt"], {}, {}
-        must = {}
+        must, empty_tip = {}, {}
         if reg["_格子"]:
             groups, fixed = slot_groups(reg)
             kinds.update(image_urls="image", video_urls="video", audio_urls="audio")
@@ -534,9 +537,12 @@ def as_model():
             for s in fixed:
                 f = fixed_field(s)
                 props[f] = {"type": "string", "format": "uri"}
-                required.append(f)
+                if not s.get("可不放"):  # v3 起锁定声音可以不放（入口开关关掉，模型自己出声）
+                    required.append(f)
                 names[f] = reg.get("格子名", {}).get(s["名字"], s["名字"])
                 kinds[f] = s["类型"]
+                if reg.get("可不放说明", {}).get(s["名字"]):
+                    empty_tip[f] = reg["可不放说明"][s["名字"]]
         for p in reg.get("参数", []):
             v = {k: p[k] for k in ("type", "minimum", "maximum", "multipleOf", "default", "description") if k in p}
             if "取值" in p:
@@ -547,7 +553,7 @@ def as_model():
                 v["title"] = p["名"]
             props[p["键"]] = v
         ways.append({
-            "缺了不能跑": must,
+            "缺了不能跑": must, "不放时": empty_tip,
             "名称": e["名称"], "endpoint": ep, "workflowId": e["workflowId"], "库id": e["id"], "备注": e.get("备注", ""),
             "结构": reg.get("结构名") or reg["名称"],
             "字段名": names, "格子类型": kinds, "输出名": list(reg.get("输出", {}).values()),
@@ -673,6 +679,33 @@ def check_required(reg, t):
 SLOT_LABEL = {"image": "图像", "video": "参考视频", "audio": "参考音频"}
 
 
+def check_fixed(reg, t):
+    """不是参考的固定格（锁定声音）：老结构必须放。网页上会拦，这里再拦一次（MCP 之类直接调接口的）——
+    不然会悄悄传占位的 1 秒静音当锁定声音。"""
+    _, fixed = slot_groups(reg)
+    for s in fixed:
+        if not s.get("可不放") and not t["素材"].get(fixed_field(s)):
+            name = reg.get("格子名", {}).get(s["名字"], s["名字"])
+            raise RuntimeError(f"这个工作流必须放「{name}」。不想锁声音就换 7 段 v3 工作流（锁定声音可以不放）")
+
+
+def check_missing_tags(reg, t):
+    """提示词里写了 <Picture 3> / <Video 1> / <Audio 2>，对应的格子却没放素材：模型拿不到，写的那句就落空了。"""
+    groups, _ = slot_groups(reg)
+    text = t["参数"].get("prompt", "")
+    bad = []
+    for field, sl in groups.items():
+        if not sl:
+            continue
+        kind = sl[0]["类型"]
+        have = len(t["素材"].get(field, []))
+        for n in sorted({int(x) for x in re.findall(r"<%s (\d+)>" % KIND_TAG[kind], text)}):
+            if n > have:
+                bad.append(f"{TAG.format(Kind=KIND_TAG[kind], n=n)}（{SLOT_LABEL[kind]}{n} 是空的）")
+    if bad:
+        raise RuntimeError("提示词里写了 " + "、".join(bad) + "：模型拿不到这几个素材。放上素材，或者把提示词里这几处删掉")
+
+
 def check_undefined_slots(reg, t):
     """反向检查：参考格子放了素材，提示词（分段的话所有段合起来）里却没有对应的 <Picture N> / <Video N> / <Audio N>。
     没定义的格子模型会自己拿去用（S3-15 v3 图像3 留着空镜1，三条都多出一盏灯）。锁定声音这类固定格不是参考，不查。"""
@@ -715,6 +748,8 @@ def node_values(reg, t, files):
         aids = t["素材"].get(fixed_field(s), [])
         used[s["名字"]] = aids[0] if aids else None
         add(s["加载节点"], s["文件字段"], files[s["名字"]])
+        if s.get("入口开关"):  # v3：入口关掉 = 没放（加载节点照样读占位文件，下游不会用到）
+            add(s["入口开关"], "switch", bool(aids))
     parts = split_prompt(reg, p)
     add(reg["提示词"]["节点"], reg["提示词"]["字段"], parts[0])
     for k, nid in enumerate(reg["提示词"].get("分段节点", []), start=2):
@@ -789,12 +824,70 @@ def prepare(req, m, w, tasks_new):
     split_prompt(reg, req["参数"])          # 分段工作流：段数和提示词段数要对上，提交前就拦下
     if tasks_new:
         check_required(reg, tasks_new[0])
+        check_fixed(reg, tasks_new[0])
         check_undefined_slots(reg, tasks_new[0])
+        check_missing_tags(reg, tasks_new[0])
     for i, t in enumerate(tasks_new):
         t["平台"] = "runninghub"
         t["workflowId"] = reg["workflowId"]
         t["种子"] = int(seed_txt) + i if seed_txt else random.randint(1, 2 ** 48)
         t["产出"] = []
+
+
+def dry_run(req, w):
+    """提交前检查（不扣费、不建任务）：和点「确认提交」时同一套检查，问题一次全列出来，外加这条会怎么跑。MCP 用。"""
+    reg = find_reg(w["endpoint"], strict=True)
+    p = req.get("参数") or {}
+    t = {"参数": p, "素材": req.get("素材") or {}}
+    probs, notes = [], []
+    if w.get("问题"):
+        probs.append(w["问题"])
+    if not str(p.get("prompt") or "").strip():
+        probs.append("要写提示词")
+    seed_txt = str(p.get("种子") or "").strip()
+    if seed_txt and not seed_txt.isdigit():
+        probs.append("种子要填数字，或者空着（随机）")
+    groups, fixed = slot_groups(reg)
+    for field, sl in groups.items():
+        if len(t["素材"].get(field, [])) > len(sl):
+            probs.append(f"{SLOT_LABEL[sl[0]['类型']] if sl else field} 最多 {len(sl)} 个")
+    for aid in [a for v in t["素材"].values() for a in v]:
+        if not H.load_json(H.ASSETS / f"{aid}.json", None):
+            probs.append(f"素材 {aid} 不在工作台里（先添加素材）")
+    try:
+        split_prompt(reg, p)
+    except Exception as e:
+        probs.append(str(e))
+    for fn in (check_required, check_fixed, check_undefined_slots, check_missing_tags):
+        try:
+            fn(reg, t)
+        except Exception as e:
+            probs.append(str(e))
+    for s in fixed:
+        if s.get("可不放") and not t["素材"].get(fixed_field(s)) and reg.get("可不放说明", {}).get(s["名字"]):
+            notes.append(reg["可不放说明"][s["名字"]])
+    if not H.MOCK:
+        if not has_key():
+            probs.append("还没有 RunningHub API Key：在工作台左下角填写")
+        elif H.load_json(H.SETTINGS_FILE, {}).get("RunningHub要求VPN", True) and not vpn_connected():
+            probs.append("Surfshark 没连上，现在交会被拦下")
+    plan = []
+    try:
+        if reg.get("分段"):
+            plan = [{"段": i + 1, "起点秒": a, "新内容起点秒": b, "终点秒": e} for i, (a, b, e) in enumerate(seg_plan(reg, p))]
+    except Exception as e:
+        if str(e) not in probs:
+            probs.append(str(e))
+    used = {}
+    for field, sl in list(groups.items()) + [(fixed_field(s), [s]) for s in fixed]:
+        for i, aid in enumerate(t["素材"].get(field, [])[:len(sl)]):
+            name = H.load_json(H.ASSETS / f"{aid}.json", {}).get("名字", aid)
+            label = reg.get("格子名", {}).get(sl[i]["名字"], sl[i]["名字"])
+            tag = TAG.format(Kind=KIND_TAG[sl[i]["类型"]], n=i + 1) if sl[i]["开关节点"] else ""
+            used[label] = f"{tag} {name}".strip()
+    return {"问题": probs, "提醒": notes, "工作流": w["名称"], "workflowId": reg.get("workflowId"),
+            "演示": H.MOCK, "机器": p.get("机器") or "Plus 48G", "段数": len(plan) or 1, "分段": plan,
+            "用到的格子": used, "输出": list(reg.get("输出", {}).values())}
 
 
 def _running():
