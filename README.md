@@ -1,9 +1,10 @@
 # MiniMax H3 工作台（Mac 版 / Windows 版源码）
 
-当前版本：**v1.3**（2026-11-15）。版本号写在 `app/hf.py` 的 `VERSION`，界面左下角、启动提示、使用说明都显示它。
+当前版本：**v1.4**（2026-11-15）。版本号写在 `app/hf.py` 的 `VERSION`，界面左下角、启动提示、使用说明都显示它。
 
 | 版本 | 改了什么 |
 |---|---|
+| v1.4 | 带 MCP（`app/h3_mcp.py`）：Claude 桌面版、ChatGPT 桌面版（Codex）这类本机 AI 助手可以看工作流、放素材、检查设置、把设置放进生成框、查进度；网页左下角「MCP」一键写入 Claude 桌面版配置（先备份）、复制别的软件的配置；可选的网址接口（Streamable HTTP，默认关，带口令）；「自动提交」开关（默认关，只能在网页上打开，要在系统确认框里亲手点）；一个参考素材都不放 = 文生视频（7 段 v3 工作流） |
 | v1.3 | 带 7 段 v3 工作流模板：锁定声音、参考视频都可以不放；提示词里写了 `<Picture N>` / `<Video N>` / `<Audio N>` 却没放对应素材时提交前提醒；后台也检查必填的锁定声音 |
 | v1.1 | 总时长上限 90 秒（7 段分段工作流，每段仍 ≤15 秒）；按「识别节点」自动认出 7 段 v1 / v2 |
 | v1.2 | 没有公开发布 |
@@ -18,6 +19,7 @@ Mac 版和 Windows 版的程序代码完全相同（`app/`），只有启动脚�
 | 路径 | 内容 |
 |---|---|
 | `app/hf.py` | 后台：本机 HTTP 服务、项目、素材、任务、文件读取 |
+| `app/h3_mcp.py` | MCP 服务（stdio；网址接口也复用它的 `handle`）：工具定义、参数检查、确认码、自动提交判断。只连本机工作台，只用 Python 自带库 |
 | `app/rh.py` | RunningHub 接口：API Key 存取、上传、提交、实时进度、下载 |
 | `app/web/index.html` | 界面（单文件，原生 JS，不加载外部资源） |
 | `app/RunningHub工作流/` | 工作流结构模板（不含 workflowId）：3 段、7 段、7 段 v2、7 段 v3 |
@@ -47,6 +49,10 @@ Mac 版和 Windows 版的程序代码完全相同（`app/`），只有启动脚�
 - 文件名净化：`hf.py` 的 `safe_name`
 - Windows 系统程序路径：`hf.py` 的 `win_tool`
 - API Key：`rh.py` 的 `_store_read` / `_store_write` / `_dpapi`，不写进任务记录和日志
+- MCP 网址接口：`hf.py` 的 `Handler.mcp_http`（默认关；只认本机 Host、带 Origin 一律拒绝、Bearer 口令 `mcp_token`、新式请求的头和正文要一致）
+- 只能由网页改的设置：`hf.py` 的 `PAGE_TOKEN`、`reject_no_page`、`mcp_settings`（打开自动提交要过 `native_confirm` 系统确认框）
+- 写 Claude 桌面版配置：`hf.py` 的 `claude_status`、`write_claude_config`（路径和写的内容由后台决定，比对指纹、先备份、原子替换）
+- 会扣费的工具：`h3_mcp.py` 的 `t_submit`（确认码，或自动提交开着时直接交；交之前都再检查一次）
 - 对外连接：`rh.py` 的 `_open`（只连 `www.runninghub.ai`）、`_fetch`（下载只认 https）、`ws_listen`（只认 wss）
 
 ## 直接从源码运行

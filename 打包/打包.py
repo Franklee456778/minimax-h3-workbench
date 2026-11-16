@@ -9,7 +9,7 @@
 包里的结构（文件夹名用英文，Windows 的启动脚本才不会因为编码出问题）：
   启动.command / 启动.bat
   使用说明.txt
-  app/       程序：hf.py、rh.py、web/、RunningHub工作流/（结构模板，不带 workflowId）
+  app/       程序：hf.py、rh.py、h3_mcp.py（v1.4 起带 MCP）、web/、RunningHub工作流/（结构模板，不带 workflowId）
   runtime/   运行环境：python/、ffmpeg/、lib/（websockets、certifi）、LICENSES.txt
   data/      数据：项目、工作流库、缓存、出片——换电脑时拷这个文件夹
 
@@ -74,6 +74,16 @@ README = """MiniMax H3 工作台（{plat}）  版本 {ver}
   API Key：Mac 存在系统钥匙串，不在 data 里；Windows 存在 data/_缓存/api_key.bin，是加密的，只有这台电脑的这个账户能解开。
   所以换电脑时不管哪个版本都要重新填一次 Key（Windows 拷过去的那个文件解不开，不会泄露）。
 
+让 AI 助手用工作台（MCP）
+  点工作台左下角的「MCP」：
+  - Claude 桌面版：点「一键写入 Claude 桌面版」（会先备份原来的配置文件），然后完全退出 Claude（菜单里的「退出」）再打开。
+  - ChatGPT 桌面版（Codex）：设置 → MCP servers → 添加 → 类型选 STDIO，命令和参数照「MCP」里写的填；
+    或者点「复制 config.toml 写法」，贴进 ~/.codex/config.toml 。
+  - 只认网址的软件：在「MCP」里打开「网址接口」，复制网址和口令。只在本机能用。
+  - 工作台要开着，助手才连得上。整个文件夹挪了位置或换了新版本，回到「MCP」里重新写一次。
+  - 默认助手不能自己扣费提交：只能把设置放进生成框、由你点「生成」，或者先检查拿到确认码再交。
+    「自动提交」打开后，助手可以直接提交到 RunningHub 扣费；打开时会弹系统确认框，要你亲手点。
+
 说明
   - 只在本机运行，网页只有这台电脑能打开；生成在 RunningHub 上跑，按 RunningHub 的规则扣费。
   - 每次提交前都有确认框。
@@ -134,9 +144,9 @@ def verify_downloads():
             raise SystemExit(f"{name} 的校验值对不上，文件可能被换过或没下完整，没有打包")
 
 
-# 给别人的版本号（Peter 2026-11-15 定）：开发文件夹是 Peter 自己用的 v1.2（带 MCP）；包是 v1.3 = v1.2 去掉 MCP。
-# 打包时写进包里的 hf.py（界面左下角、启动提示读它）。以后发新包就把这里加一，再打 git 标签 H3工作台-vX.Y。
-PACK_VERSION = "1.3"
+# 给别人的版本号：打包时写进包里的 hf.py（界面左下角、启动提示读它）。以后发新包就把这里加一，再打 git 标签 H3工作台-vX.Y。
+# v1.3 = v1.2 去掉 MCP；v1.4（Peter 2026-11-15 定）MCP 给所有人用：包里带 h3_mcp.py，开发版和包版本号一致。
+PACK_VERSION = "1.4"
 
 
 def version():
@@ -155,12 +165,12 @@ def copy_app(dst, with_library):
     app = dst / "app"
     app.mkdir(parents=True)
     shutil.copy2(SRC / "rh.py", app / "rh.py")
-    # 给别人的包不带 MCP（Peter 2026-11-15 定：MCP 只留在自己的开发版 v1.2 里）：不放 h3_mcp.py，hf.py 里 MCP 关掉、版本号换成包的版本号
+    # v1.4 起包里带 MCP（Peter 2026-11-15 定）：放 h3_mcp.py；hf.py 的 MCP 要开着，版本号写成包的版本号
+    shutil.copy2(SRC / "h3_mcp.py", app / "h3_mcp.py")
     hf = (SRC / "hf.py").read_text(encoding="utf-8")
-    hf, n1 = re.subn(r'^MCP = True\b', "MCP = False", hf, count=1, flags=re.M)
     hf, n2 = re.subn(r'^VERSION = "[^"]+"', f'VERSION = "{PACK_VERSION}"', hf, count=1, flags=re.M)
-    if n1 != 1 or n2 != 1:
-        raise SystemExit("hf.py 里找不到 MCP = True 或 VERSION，不能打包")
+    if n2 != 1 or not re.search(r'^MCP = True\b', hf, flags=re.M):
+        raise SystemExit("hf.py 里找不到 VERSION 或 MCP = True，不能打包")
     (app / "hf.py").write_text(hf, encoding="utf-8")
     shutil.copytree(SRC / "web", app / "web")
     (app / "RunningHub工作流").mkdir()
@@ -227,7 +237,7 @@ def untar(name, to):
 
 
 def build_mac(ver, with_library):
-    dst = OUT / f"{NAME} Mac版"
+    dst = OUT / f"{NAME} Mac版 v{PACK_VERSION}"  # 文件夹和 zip 名带版本号（Peter 2026-11-15 定：不然看不出压缩包是哪一版）
     shutil.rmtree(dst, ignore_errors=True)
     copy_app(dst, with_library)
     rt = dst / "runtime"
@@ -255,14 +265,14 @@ def build_mac(ver, with_library):
     cmd.chmod(0o755)
     first = "     如果系统说「无法打开，因为无法验证开发者」：在「启动.command」上点右键 → 打开 → 再点「打开」，只需要这一次。"
     (dst / "使用说明.txt").write_text(README.format(plat="Mac 版，Apple 芯片", ver=ver, launcher="启动.command", first=first), encoding="utf-8")
-    z = OUT / f"{NAME} Mac版.zip"
+    z = OUT / f"{dst.name}.zip"
     z.unlink(missing_ok=True)
     subprocess.run(["ditto", "-c", "-k", "--keepParent", "--norsrc", str(dst), str(z)], check=True)
     return dst, z
 
 
 def build_win(ver, with_library):
-    dst = OUT / f"{NAME} Windows版"
+    dst = OUT / f"{NAME} Windows版 v{PACK_VERSION}"
     shutil.rmtree(dst, ignore_errors=True)
     copy_app(dst, with_library)
     rt = dst / "runtime"
@@ -289,7 +299,7 @@ def build_win(ver, with_library):
     (dst / "启动.bat").write_bytes(WIN_BAT.replace("\n", "\r\n").encode("ascii"))
     first = "     如果弹出「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」。防火墙问是否允许，选允许（只在本机用）。"
     (dst / "使用说明.txt").write_bytes(("﻿" + README.format(plat="Windows 版，64 位", ver=ver, launcher="启动.bat", first=first)).replace("\n", "\r\n").encode("utf-8"))
-    z = OUT / f"{NAME} Windows版.zip"
+    z = OUT / f"{dst.name}.zip"
     z.unlink(missing_ok=True)
     with zipfile.ZipFile(z, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:  # zipfile 会给中文文件名打上 UTF-8 标记，Windows 解压不乱码
         for f in sorted(dst.rglob("*")):

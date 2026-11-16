@@ -304,6 +304,18 @@ textarea#prompt::placeholder{color:var(--tx3)}
 .modal .btns button.go{background:var(--lime);color:#111}
 .modal .btns button.danger{background:#5a1c28;color:#ffd0d8}
 .modal .small{font-size:12px;color:var(--tx3);margin-top:8px}
+.pill.off b{background:var(--tx3)}
+#mcpPill{cursor:pointer}
+.mcp-sec{border-top:1px solid #34363a;padding:12px 0 4px;font-size:13.5px;color:var(--tx2);line-height:1.65}
+.mcp-sec h4{margin:0 0 4px;font-size:14.5px;color:var(--tx)}
+.mcp-sec .st{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--chip);margin-left:6px;color:var(--tx2)}
+.mcp-sec .st.ok{color:#111;background:var(--green)} .mcp-sec .st.warn{color:#111;background:var(--amber)} .mcp-sec .st.bad{color:#fff;background:#8a2435}
+.mcp-sec .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.mcp-sec .row button{padding:7px 12px;border-radius:10px;background:var(--chip);font-size:13px;color:var(--tx)}
+.mcp-sec .row button.go{background:var(--lime);color:#111;font-weight:650}
+.mcp-sec .row button.danger{background:#5a1c28;color:#ffd0d8;font-weight:650}
+.mcp-sec code{font-size:12px;background:#1c1e21;border-radius:6px;padding:1px 5px;word-break:break-all;color:var(--tx2)}
+.mcp-sec .warnbox{background:#3a1d23;border:1px solid #6b2a37;border-radius:10px;padding:8px 10px;color:#ffd0d8;margin-top:6px}
 
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#2e3033;border:1px solid #47494e;padding:11px 18px;border-radius:13px;z-index:140;font-size:14px;max-width:min(680px,90vw);box-shadow:0 10px 40px rgba(0,0,0,.5)}
 .toast.bad{border-color:#7a2e3b;background:#34181e}
@@ -425,6 +437,7 @@ body.railmode .hero h1{font-size:28px;margin-bottom:4px}
     </div>
     <div class="navfoot">
       <div id="keyPill" class="pill"><b></b><span>…</span></div>
+      <div id="mcpPill" class="pill" hidden title="让 Claude 桌面版、ChatGPT 桌面版这类 AI 助手连上工作台"><b></b><span>MCP</span></div>
       <button id="quitBtn" class="quit" title="停掉工作台：后台不再运行、不再连 RunningHub">退出工作台</button>
       <span id="verTag" class="ver"></span>
     </div>
@@ -538,10 +551,12 @@ const famOf = id => [id, ...kidsOf(id).flatMap(k => famOf(k.id))];          // �
 const pathOf = id => { const out = []; for (let p = project(id), n = 0; p && n < 6; p = project(p.上级), n++) out.unshift(p); return out; };
 const ctxOut = () => S.ctx ? (project(S.ctx) || {}).输出目录 : (S.outDir || S.st.输出目录);
 
+const PAGE_TOKEN = document.querySelector('meta[name="h3-page"]')?.content || '';
 const MAX_COUNT = 10;  // 一次最多生成几条（Peter 2026-11-12 定 10）
 async function api(path, body){
   if (S.quit) return new Promise(() => {});  // 退出后不再请求后台（不报错、不弹提示）
-  const r = await fetch(path, body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const headers = {'X-H3-Page': PAGE_TOKEN};  // 网页口令：改 MCP 设置这类接口只认工作台自己的网页
+  const r = await fetch(path, body === undefined ? {headers} : {method:'POST', headers:{...headers, 'Content-Type':'application/json'}, body:JSON.stringify(body)});
   let j; try { j = await r.json(); } catch { j = {错误:`后台没有回应（${r.status}）`}; }
   if (!r.ok || j.错误) throw new Error(j.错误 || r.status);
   return j;
@@ -784,6 +799,8 @@ function convertTags(){
   $('prompt').value = $('prompt').value.replace(TAG_RE, (...m) => { const [k, n] = tagKey(m).split(':'); return fmtTag(k, n); });
   renderGen(); saveDraft();
 }
+// 一个参考格子都没放（锁定声音这类固定格不算参考）= 文生视频
+function noRefs(){ return isRH() && !mediaFields().some(f => f.isRef && (S.assign[f.field] || []).length); }
 function renderGen(){
   const pr = problems(), e = estimate(), stray = strayTags();
   const btn = $('genBtn');
@@ -794,7 +811,7 @@ function renderGen(){
   const fixable = stray.some(t => allTags().some(x => keyOf(x.tag) === keyOf(t)));
   $('hint').innerHTML = pr.length ? esc(pr.join('；'))
     : stray.length ? `提示词里的 ${esc(stray.join(' '))} 没有对应的素材${fixable ? `（${esc(model().名称)} 的写法是 ${esc(fmtTag('image', 1))}）<button class="ghost" style="margin-left:8px;padding:2px 9px;font-size:12px" data-act="convertTags">一键改写法</button>` : ''}`
-    : e.each == null ? esc(`${S.count > 1 ? S.count + ' 条，' : ''}按 RunningHub 机器运行时长扣 RH 币，跑完在任务详情里看耗时；空着的格子会自动关掉`)
+    : e.each == null ? esc(`${noRefs() ? '文生视频（一个参考素材都没放）。' : ''}${S.count > 1 ? S.count + ' 条，' : ''}按 RunningHub 机器运行时长扣 RH 币，跑完在任务详情里看耗时；空着的格子会自动关掉`)
     : esc(`${S.count > 1 ? S.count + ' 条 × ' : ''}每条约 $${e.each.toFixed(2)}（按当前折扣 ${S.cfg.当前折扣} 估，实际以平台账单为准；失败不扣费）`);
   $('genNote').textContent = S.st.演示 ? '演示模式：不连 RunningHub、不扣费' : '点了会先让你确认';
   $('prompt').placeholder = `描述画面，用 @ 引用素材（${fmtTag('image', 1)} 是第一张参考图）`;
@@ -1104,6 +1121,7 @@ $('genBtn').onclick = () => {
     ${mediaRows}
     ${mediaFields().filter(f => !(S.assign[f.field] || []).length && (w.不放时 || {})[f.field]).map(f =>
       `<tr><td>${esc(f.label)}</td><td><span style="color:var(--tx3)">${esc(w.不放时[f.field])}</span></td></tr>`).join('')}
+    ${noRefs() ? '<tr><td>方式</td><td>文生视频：一个参考素材都没放，画面全按提示词生成</td></tr>' : ''}
     <tr><td>提示词</td><td><div class="pp">${esc(prompt) || '<i>（无）</i>'}</div></td></tr>
     <tr><td>数量</td><td>${S.count} 条</td></tr>
     <tr><td>存到</td><td>${esc(dir)}/<br>${outLine}</td></tr>
@@ -1285,7 +1303,7 @@ async function pollTasks(){
   } catch {}
   checkHandoff();
 }
-// Claude（MCP）放进生成框的设置：问一句再换上；提交还是要在这里点「生成」→「确认提交」
+// AI 助手（MCP）放进生成框的设置：问一句再换上；提交还是要在这里点「生成」→「确认提交」
 async function checkHandoff(){
   if (S.hoBusy || !S.st || !S.st.MCP) return;  // 给别人的包没有 MCP，不去问
   let list; try { list = await api('/api/handoff'); } catch { return; }
@@ -1293,7 +1311,7 @@ async function checkHandoff(){
   S.hoBusy = true;
   try {
     const h = list[0], pj = h.项目 ? project(h.项目) : null;
-    const ok = await confirmBox('Claude 准备好了一组设置', `${h.说明 ? esc(h.说明) + '<br><br>' : ''}放进${pj ? `「${esc(pj.名称)}」的` : '首页的'}生成框？生成框里现在写的内容会被换掉。<br>放进去后核对一遍，要跑再点「生成」。`, '放进生成框');
+    const ok = await confirmBox('AI 助手（MCP）准备好了一组设置', `${h.说明 ? esc(h.说明) + '<br><br>' : ''}放进${pj ? `「${esc(pj.名称)}」的` : '首页的'}生成框？生成框里现在写的内容会被换掉。<br>放进去后核对一遍，要跑再点「生成」。`, '放进生成框');
     await api(`/api/handoff/${h.id}/take`, {});
     if (!ok) return;
     location.hash = pj ? '#/p/' + pj.id : '#/home';
@@ -1709,6 +1727,7 @@ async function boot(){
   await pollTasks();
   await route();
   loadAccount(); setInterval(loadAccount, 120000);
+  loadMcp(); setInterval(loadMcp, 30000);
   setInterval(pollTasks, 2500);
 }
 // ---------- API Key ----------
@@ -1772,6 +1791,106 @@ function keyBox(){
   };
 }
 $('keyPill').onclick = keyBox;
+
+// ---------- MCP：让 Claude 桌面版、ChatGPT 桌面版这类 AI 助手用工作台 ----------
+async function loadMcp(){
+  if (!S.st || !S.st.MCP){ $('mcpPill').hidden = true; return; }
+  try { S.mcp = await api('/api/mcp'); } catch { S.mcp = null; }
+  renderMcpPill();
+}
+function renderMcpPill(){
+  const pill = $('mcpPill'), m = S.mcp; pill.hidden = !m;
+  if (!m) return;
+  const c = m.claude || {}, recent = m.最近连接;
+  let cls = 'pill off', text = 'MCP';
+  if (c.状态 === '位置变了'){ cls = 'pill warn'; text = 'MCP · 位置变了，要重写'; }
+  else if (c.状态 === '已写好' || recent){ cls = 'pill'; text = recent ? `MCP · ${recent.客户端}` : 'MCP · 已配置'; }
+  if (m.自动提交){ cls = 'pill bad'; text += ' · 自动提交开着'; }
+  pill.className = cls; pill.lastChild.textContent = text;
+  pill.title = m.自动提交 ? 'MCP 自动提交开着：AI 助手可以直接提交扣费。点这里管理' : '让 Claude 桌面版、ChatGPT 桌面版这类 AI 助手连上工作台';
+}
+async function copyText(t, what){
+  try { await navigator.clipboard.writeText(t); }
+  catch { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  toast(`已复制${what || ''}`);
+}
+function mcpHTML(m){
+  const c = m.claude || {}, cf = m.配置, recent = m.最近连接;
+  const cst = {已写好:['ok', '已写好'], 没写:['', '还没写'], 位置变了:['warn', '位置变了'], 读不了:['bad', '读不了']}[c.状态] || ['', c.状态 || ''];
+  const when = recent ? new Date(recent.时间).toLocaleString() : '';
+  return `<h3>MCP：让 AI 助手用工作台</h3>
+  <div style="font-size:13.5px;color:var(--tx2);line-height:1.65">Claude 桌面版、ChatGPT 桌面版（Codex）这类<b>装在这台电脑上</b>的 AI 助手，可以经 MCP 看工作流、放素材、检查设置、把设置放进生成框、查进度。
+  默认它们<b>不能自己扣费提交</b>：要么放进生成框由你点「生成」，要么先检查拿到确认码再交。工作台要开着，助手才连得上。${m.演示 ? '<br><b style="color:var(--amber)">演示模式：这里写的配置连的是演示端口。</b>' : ''}</div>
+  <div class="mcp-sec">程序：${m.脚本在 ? '<span class="st ok">h3_mcp.py 在</span>' : '<span class="st bad">缺 h3_mcp.py</span>'}　最近连接：${recent ? `${esc(recent.客户端)}（${esc(recent.方式)}，${esc(when)}）` : '还没有助手连过'}</div>
+  <div class="mcp-sec"><h4>Claude 桌面版 <span class="st ${cst[0]}">${esc(cst[1])}</span></h4>
+    配置文件：<code>${esc(c.路径 || '')}</code>
+    ${c.读不了 ? `<div class="warnbox">${esc(c.读不了)}</div>` : ''}
+    ${c.状态 === '位置变了' ? '<div class="small" style="color:var(--amber)">配置里的「minimax-h3」指的不是现在这个工作台（文件夹挪过、换了新版，或者端口不同）：点「重新写入」。</div>' : ''}
+    ${(c.别的名字 || []).length ? `<div class="small">配置里还有 ${c.别的名字.map(x => '「' + esc(x) + '」').join('')} 也指向某个工作台：工具会出现两份，可以在 Claude 设置 → 开发者 里删掉旧的。</div>` : ''}
+    ${(c.商店版 || []).length ? `<div class="small" style="color:var(--amber)">发现微软商店版 Claude 的数据文件夹，它可能读另一份配置（待确认）：${c.商店版.map(esc).join('；')}</div>` : ''}
+    <div class="row">${c.读不了 ? '' : `<button class="go" data-m="claude">${c.状态 === '已写好' ? '再写一次' : c.状态 === '位置变了' ? '重新写入' : '一键写入 Claude 桌面版'}</button>`}<button data-m="copy" data-k="stdio_json">复制 JSON</button></div>
+    <div class="small">写之前会备份原文件、只改自己那一条。写完要<b>完全退出 Claude</b>（菜单 Claude → 退出，不是关窗口）再打开；Claude 第一次用每个工具时会问你允许不允许。</div></div>
+  <div class="mcp-sec"><h4>ChatGPT 桌面版 / Codex</h4>
+    ChatGPT 桌面版：设置 → MCP servers → 添加 → 类型选 <b>STDIO</b>，命令填 <code>${esc(m.Python)}</code>，参数两个：<code>-I</code> 和 <code>${esc((m.claude.要写的.args || [])[1] || '')}</code>${m.claude.要写的.env ? `，环境变量 <code>H3_PORT=${esc(m.claude.要写的.env.H3_PORT)}</code>` : ''}。也可以把「复制 config.toml 写法」贴进 <code>~/.codex/config.toml</code>（Codex 命令行、IDE 插件共用这一份）。改完重开。
+    <div class="row"><button data-m="copy" data-k="stdio_toml">复制 config.toml 写法</button><button data-m="copytext" data-t="${esc(m.Python)}">复制命令</button><button data-m="copytext" data-t="${esc((m.claude.要写的.args || [])[1] || '')}">复制脚本路径</button></div>
+    <div class="small">ChatGPT 网页版连不了本机的工作台（它只连公网上的服务）。</div></div>
+  <div class="mcp-sec"><h4>网址接口 <span class="st ${m.网址接口 ? 'ok' : ''}">${m.网址接口 ? '开着' : '关着'}</span></h4>
+    给只认网址（Streamable HTTP）、不认 STDIO 的软件用。只在本机 <code>${esc(cf.网址)}</code>，要带口令；浏览器里的网页调不了。不用就关着。
+    ${m.网址接口 ? `<div style="margin-top:6px">口令：<code id="mcpTok">••••••••••••</code> <button class="ghost" data-m="show" style="padding:2px 9px;font-size:12px">显示</button></div>` : ''}
+    <div class="row"><button data-m="http" class="${m.网址接口 ? '' : 'go'}">${m.网址接口 ? '关掉网址接口' : '打开网址接口'}</button>${m.网址接口 ? `<button data-m="copytext" data-t="${esc(cf.网址)}">复制网址</button><button data-m="copytok">复制口令</button><button data-m="copy" data-k="http_json">复制 JSON</button><button data-m="copy" data-k="http_toml">复制 config.toml 写法</button><button data-m="reset">重置口令</button>` : ''}</div></div>
+  <div class="mcp-sec"><h4>自动提交 <span class="st ${m.自动提交 ? 'bad' : ''}">${m.自动提交 ? '开着：助手可以直接扣费' : '关着'}</span></h4>
+    关着时（默认）：助手只能把设置放进生成框由你点「生成」，或者先检查、拿到确认码再提交。<br>
+    <b style="color:#ffd0d8">打开后：助手可以不经过你点「生成」，直接把任务提交到 RunningHub，按机器运行时长扣 RH 币。</b>打开时会弹一个系统确认框，要你亲手点；助手自己打不开这个开关。
+    <div class="row"><button data-m="auto" class="${m.自动提交 ? 'go' : 'danger'}">${m.自动提交 ? '关掉自动提交' : '打开自动提交（会扣费）'}</button></div></div>
+  <div class="btns"><button data-x="no">关闭</button></div>`;
+}
+async function mcpBox(){
+  await loadMcp();
+  if (!S.mcp){ toast('读不到 MCP 状态', true); return; }
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  const draw = () => { bg.innerHTML = `<div class="modal" style="width:min(640px,100%)">${mcpHTML(S.mcp)}</div>`; renderMcpPill(); };
+  draw(); document.body.appendChild(bg);
+  bg.onclick = async e => {
+    if (e.target === bg || e.target.closest('[data-x]')){ bg.remove(); return; }
+    const b = e.target.closest('[data-m]'); if (!b) return;
+    const m = S.mcp, act = b.dataset.m;
+    try {
+      if (act === 'copy') return copyText(m.配置[b.dataset.k], '配置');
+      if (act === 'copytext') return copyText(b.dataset.t);
+      if (act === 'copytok') return copyText(m.口令 || '', '口令');
+      if (act === 'show'){ $('mcpTok').textContent = m.口令 || ''; return; }
+      if (act === 'claude'){
+        const c = m.claude;
+        bg.remove();
+        const ok = await confirmBox('写入 Claude 桌面版的配置', `会改这个文件：<br><code>${esc(c.路径)}</code><br>${c.有文件 ? '先在旁边备份一份原文件（文件名后面加「.h3备份-日期时间」），' : '文件还不存在，会新建；'}只在 mcpServers 里写（或替换）「minimax-h3」这一条，别的设置不动：<div class="pp" style="margin-top:8px">${esc(JSON.stringify(c.要写的, null, 2))}</div>写完要完全退出 Claude 再打开。`, '写入');
+        if (ok){
+          const r = await api('/api/mcp/claude', {指纹: c.指纹});
+          toast(`已写入 Claude 配置${r.备份 ? '，原文件备份在旁边' : ''}。完全退出 Claude 再打开`);
+        }
+        await loadMcp(); return mcpBox();
+      }
+      if (act === 'http'){ S.mcp = await api('/api/mcp/settings', {网址接口: !m.网址接口}); draw(); return; }
+      if (act === 'reset'){
+        bg.remove();
+        if (await confirmBox('重置口令', '旧口令马上失效，用旧口令配置的软件要换成新口令。', '重置', true)) S.mcp = await api('/api/mcp/token', {});
+        return mcpBox();
+      }
+      if (act === 'auto'){
+        if (m.自动提交){ S.mcp = await api('/api/mcp/settings', {自动提交: false}); S.st = await api('/api/state'); draw(); toast('已关掉自动提交'); return; }
+        bg.remove();
+        const ok = await confirmBox('打开自动提交？', 'AI 助手（经 MCP）将可以<b>不经过你点「生成」，直接提交到 RunningHub、按机器运行时长扣 RH 币</b>。<br>下一步会弹一个系统确认框，在那个框里点「打开自动提交」才算数。', '继续', true);
+        if (ok){
+          toast('看一下屏幕上的系统确认框');
+          try { S.mcp = await api('/api/mcp/settings', {自动提交: true}); toast('自动提交已打开：助手可以直接扣费提交', true); }
+          catch (err){ toast(err.message, true); }
+          S.st = await api('/api/state');
+        }
+        return mcpBox();
+      }
+    } catch (err){ toast(err.message, true); }
+  };
+}
+$('mcpPill').onclick = mcpBox;
 $('quitBtn').onclick = async () => {
   const live = S.tasks.filter(t => !t.演示 === !S.st.演示 && ['uploading', 'queued', 'in_progress'].includes(t.状态));
   const up = live.filter(t => t.状态 === 'uploading').length, run = live.length - up;

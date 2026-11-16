@@ -6,11 +6,14 @@
 
 H3 在 RunningHub（ComfyUI 工作流）上跑，接口见 rh.py；结构模板在 RunningHub工作流/，工作流 ID 存在 工作流库.json。
 """
+import base64
 import hashlib
+import hmac
 import json
 import os
 import random
 import re
+import secrets
 import shutil
 import ssl
 import subprocess
@@ -26,6 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+import h3_mcp
 import rh
 
 ROOT = Path(__file__).resolve().parent          # 程序所在
@@ -41,8 +45,8 @@ PROJECTS_FILE = DATA / "项目.json"
 WIN, MAC = sys.platform == "win32", sys.platform == "darwin"
 
 PORT = int(os.environ.get("H3_PORT") or 8790)  # 8765 是 05-电影 预演服务器在用；H3_PORT 可以临时换端口
-VERSION = "1.3"  # 版本号：每次给别人发新包前加一（1.1、1.2…），界面左下角、使用说明、启动提示都读这里
-MCP = False  # 给 Claude 用的 MCP 接口（/api/check、/api/handoff）。打包给别人的版本由 打包.py 改成 False（Peter 2026-11-15 定：MCP 只留给自己用）
+VERSION = "1.4"  # 版本号：每次给别人发新包前加一（1.1、1.2…），界面左下角、使用说明、启动提示都读这里
+MCP = True  # MCP 接口（/api/check、/api/handoff、网页「MCP」按钮、/mcp 网址接口）。v1.4 起给所有人用（Peter 2026-11-15 定），包里也开着
 UA = f"h3-workbench/{VERSION}"
 MOCK = "--演示" in sys.argv
 
@@ -577,6 +581,198 @@ def cancel(tid):
     raise RuntimeError("这条是旧版经 Higgsfield 提交的任务，取消不了")
 
 
+# ---------- MCP：网页「MCP」按钮背后的东西（v1.4）----------
+# 网页口令：每次启动随机生成，只写进 / 返回的网页里。改 MCP 设置、写 Claude 配置、看网址接口口令都要带它，
+# 这样 MCP 工具（经 /api 调工作台）碰不到这些接口。打开「自动提交」另外还要在系统对话框里点一下（人点，程序点不了）。
+PAGE_TOKEN = secrets.token_urlsafe(24)
+MCP_NAME = "minimax-h3"  # 写进各桌面软件配置里的名字
+MCP_SEEN = {}  # 最近一次 MCP 调用：{"客户端", "方式", "时间"}，只在内存里
+MCP_TOKEN_FILE = CACHE / "mcp_token.txt"
+
+
+def settings():
+    return load_json(SETTINGS_FILE, {})
+
+
+def set_setting(k, v):
+    with lock:
+        s = settings()
+        s[k] = v
+        save_json(SETTINGS_FILE, s)
+
+
+def mcp_token(reset=False):
+    """网址接口（/mcp）的口令：第一次用时随机生成，存在 _缓存/mcp_token.txt（只有本人可读）。重置后旧口令立刻失效。"""
+    with lock:
+        tok = "" if reset else (MCP_TOKEN_FILE.read_text(encoding="utf-8").strip() if MCP_TOKEN_FILE.exists() else "")
+        if len(tok) < 32:
+            tok = secrets.token_urlsafe(32)
+            MCP_TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+            MCP_TOKEN_FILE.write_text(tok, encoding="utf-8")
+            if not WIN:
+                MCP_TOKEN_FILE.chmod(0o600)
+        return tok
+
+
+def mcp_entry():
+    """stdio 配置：用正在跑工作台的这个 Python（包里就是 runtime/python）启动 app/h3_mcp.py。
+    -I：不读 PYTHON* 环境变量、不把脚本所在文件夹加进模块搜索路径（h3_mcp.py 只用自带库）。"""
+    e = {"command": str(Path(sys.executable).absolute()), "args": ["-I", str(ROOT / "h3_mcp.py")]}
+    if PORT != 8790:
+        e["env"] = {"H3_PORT": str(PORT)}
+    return e
+
+
+def claude_config_path():
+    if os.environ.get("H3_CLAUDE_CONFIG"):  # 测试用：指到临时文件，不碰真配置
+        return Path(os.environ["H3_CLAUDE_CONFIG"])
+    if MAC:
+        return Path.home() / "Library/Application Support/Claude/claude_desktop_config.json"
+    if WIN:
+        return Path(os.environ.get("APPDATA") or Path.home() / "AppData/Roaming") / "Claude" / "claude_desktop_config.json"
+    return Path.home() / ".config/Claude/claude_desktop_config.json"
+
+
+def _points_here(e):
+    return isinstance(e, dict) and any(str(x).replace("\\", "/").endswith("/h3_mcp.py") for x in e.get("args") or [])
+
+
+def claude_status():
+    p = claude_config_path()
+    out = {"路径": str(p), "有文件": p.exists(), "要写的": mcp_entry(), "指纹": None, "读不了": None, "现在的": None, "别的名字": []}
+    if WIN:  # 微软商店版可能读的是虚拟化后的另一份（待确认）：找到了就提醒
+        pk = Path(os.environ.get("LOCALAPPDATA") or "") / "Packages"
+        hits = [str(d / "LocalCache/Roaming/Claude") for d in (pk.glob("*Claude*") if pk.is_dir() else []) if (d / "LocalCache/Roaming/Claude").is_dir()]
+        if hits:
+            out["商店版"] = hits
+    if not p.exists():
+        out["状态"] = "没写"
+        return out
+    raw = p.read_bytes()
+    out["指纹"] = hashlib.sha256(raw).hexdigest()[:16]
+    try:
+        d = json.loads(raw.decode("utf-8-sig") or "{}")
+        if not isinstance(d, dict) or not isinstance(d.get("mcpServers", {}), dict):
+            raise ValueError("最外层或 mcpServers 不是对象")
+    except ValueError as e:
+        out["读不了"] = f"配置文件不是有效的 JSON（{e}），不改它。先在 Claude 设置 → 开发者 → 编辑配置里修好"
+        out["状态"] = "读不了"
+        return out
+    servers = d.get("mcpServers") or {}
+    cur = servers.get(MCP_NAME)
+    out["现在的"] = cur
+    out["别的名字"] = [k for k, v in servers.items() if k != MCP_NAME and _points_here(v)]
+    out["状态"] = "没写" if cur is None else "已写好" if cur == out["要写的"] else "位置变了"
+    return out
+
+
+def write_claude_config(seen):
+    """写进 Claude 桌面版的配置：先比对指纹（网页上看到的就是现在的文件），备份原文件，只改 mcpServers 里自己那一条。"""
+    with lock:
+        st = claude_status()
+        if st.get("读不了"):
+            raise RuntimeError(st["读不了"])
+        if st["指纹"] != (seen or None):
+            raise RuntimeError("配置文件刚刚被改过（可能是 Claude 自己存了设置）：关掉这个框重新打开「MCP」再写")
+        p = claude_config_path()
+        d, backup = {}, None
+        if p.exists():
+            raw = p.read_bytes()
+            d = json.loads(raw.decode("utf-8-sig") or "{}")
+            backup = p.with_name(f"{p.name}.h3备份-{datetime.now():%Y%m%d-%H%M%S}")
+            backup.write_bytes(raw)
+            try:
+                shutil.copymode(p, backup)
+            except OSError:
+                pass
+        d.setdefault("mcpServers", {})[MCP_NAME] = mcp_entry()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_name(p.name + ".h3写入中")
+        tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        if p.exists():
+            try:
+                shutil.copymode(p, tmp)
+            except OSError:
+                pass
+        elif not WIN:
+            tmp.chmod(0o600)
+        os.replace(tmp, p)
+    return {"路径": str(p), "备份": str(backup) if backup else None}
+
+
+CONFIRM_MAC = ('on run argv\nset r to display dialog (item 2 of argv) with title (item 1 of argv) buttons {"取消", (item 3 of argv)} '
+               'default button "取消" cancel button "取消" with icon caution giving up after 120\n'
+               'return (button returned of r) & "|" & (gave up of r)\nend run')
+CONFIRM_PS = ("Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; "
+              "$r = [System.Windows.Forms.MessageBox]::Show($f, $env:H3_B, $env:H3_T, 'YesNo', 'Warning', 'Button2'); Write-Output $r")
+
+
+def native_confirm(title, text, ok_text):
+    """系统自己的确认框（不是网页里的）：要人用鼠标点「确定」才算。默认按钮是「取消」，2 分钟没人点也算取消。"""
+    try:
+        if MAC:
+            r = subprocess.run(["osascript", "-e", CONFIRM_MAC, title, text, ok_text], capture_output=True, text=True, timeout=150)
+            return r.returncode == 0 and r.stdout.strip() == f"{ok_text}|false"
+        if WIN:
+            r = subprocess.run([win_tool("powershell"), "-NoProfile", "-STA", "-Command", CONFIRM_PS], capture_output=True, text=True,
+                               env={**os.environ, "H3_T": title, "H3_B": text}, timeout=150, creationflags=0x08000000)
+            return r.stdout.strip() == "Yes"
+    except Exception:
+        pass
+    return False
+
+
+AUTO_TEXT = ("打开后，AI 助手（经 MCP）可以不经过你点「生成」、直接把任务提交到 RunningHub，按机器运行时长扣 RH 币。\n\n"
+             "只在你信任这个助手、也清楚它每次要交什么的时候打开。随时可以在工作台的「MCP」里关掉。")
+
+
+def mcp_configs():
+    e = mcp_entry()
+    url = f"http://127.0.0.1:{PORT}/mcp"
+    toml = [f"[mcp_servers.{MCP_NAME}]", f"command = {json.dumps(e['command'], ensure_ascii=False)}",
+            f"args = {json.dumps(e['args'], ensure_ascii=False)}"]
+    if e.get("env"):
+        toml += [f"[mcp_servers.{MCP_NAME}.env]"] + [f"{k} = {json.dumps(v)}" for k, v in e["env"].items()]
+    return {"stdio_json": json.dumps({"mcpServers": {MCP_NAME: e}}, ensure_ascii=False, indent=2),
+            "stdio_toml": "\n".join(toml),
+            "网址": url,
+            "http_json": json.dumps({"mcpServers": {MCP_NAME: {"type": "http", "url": url,
+                                                               "headers": {"Authorization": "Bearer <口令>"}}}}, ensure_ascii=False, indent=2),
+            "http_toml": "\n".join([f"[mcp_servers.{MCP_NAME}]", f'url = "{url}"', 'bearer_token_env_var = "H3_MCP_TOKEN"',
+                                    "# 口令放进环境变量 H3_MCP_TOKEN；或者改用 http_headers = { \"Authorization\" = \"Bearer <口令>\" }"])}
+
+
+def mcp_info():
+    s = settings()
+    st = claude_status()
+    return {"自动提交": bool(s.get("MCP自动提交")), "网址接口": bool(s.get("MCP网址接口")),
+            "口令": mcp_token() if s.get("MCP网址接口") else None, "脚本在": (ROOT / "h3_mcp.py").exists(),
+            "Python": mcp_entry()["command"], "最近连接": MCP_SEEN or None, "claude": st, "配置": mcp_configs(), "演示": MOCK}
+
+
+def mcp_settings(b):
+    if "自动提交" in b:
+        on = bool(b["自动提交"])
+        if on and not settings().get("MCP自动提交"):
+            if not native_confirm("MiniMax H3 工作台：打开自动提交？", AUTO_TEXT, "打开自动提交"):
+                raise RuntimeError("没有在系统确认框里点「打开自动提交」，自动提交还是关着")
+        set_setting("MCP自动提交", on)
+    if "网址接口" in b:
+        set_setting("MCP网址接口", bool(b["网址接口"]))
+        if b["网址接口"]:
+            mcp_token()
+    return mcp_info()
+
+
+def _b64_header(v):
+    if v.startswith("=?base64?") and v.endswith("?="):
+        try:
+            return base64.b64decode(v[9:-2]).decode("utf-8")
+        except Exception:
+            return None
+    return v
+
+
 # ---------- 本机网页服务 ----------
 
 def allowed_file(p):
@@ -619,9 +815,70 @@ class Handler(BaseHTTPRequestHandler):
 
     def reject_foreign(self):
         if request_allowed(self.headers.get("Host", ""), self.headers.get("Origin", "")):
+            via = self.headers.get("X-H3-MCP")
+            if via:  # MCP 工具调过来的：记下最近一次，网页「MCP」里显示「最近连接」
+                way, _, who = unquote(via).partition("|")
+                MCP_SEEN.update(客户端=who[:60] or "未知", 方式="网址" if way == "http" else "stdio",
+                                时间=datetime.now().isoformat(timespec="seconds"))
             return False
         self.json({"错误": "只接受本机页面的请求"}, 403)
         return True
+
+    def reject_no_page(self):
+        """改 MCP 设置这类接口只认工作台自己的网页（带启动时随机生成的网页口令）。MCP 工具和别的程序没有这个口令。"""
+        if hmac.compare_digest(self.headers.get("X-H3-Page", "").encode("utf-8", "replace"), PAGE_TOKEN.encode()):
+            return False
+        self.json({"错误": "这个设置只能在工作台网页上改"}, 403)
+        return True
+
+    def mcp_http(self):
+        """MCP 网址接口（Streamable HTTP，POST /mcp）。要在网页「MCP」里打开；只认本机地址（Host 已在 reject_foreign 查过），
+        不认任何带 Origin 的请求（浏览器里的网页，防外站和 DNS 重绑定），要带口令（Authorization: Bearer …）。"""
+        if not MCP or not settings().get("MCP网址接口"):
+            return self.json({"错误": "MCP 网址接口没打开：在工作台网页的「MCP」里打开"}, 404)
+        if self.headers.get("Origin"):
+            return self.json({"jsonrpc": "2.0", "error": {"code": -32600, "message": "不接受网页发来的 MCP 请求"}}, 403)
+        auth = self.headers.get("Authorization", "")
+        if not (auth.startswith("Bearer ") and hmac.compare_digest(auth[7:].strip().encode("utf-8", "replace"), mcp_token().encode())):
+            self.send(401, json.dumps({"jsonrpc": "2.0", "error": {"code": -32001, "message": "口令不对：到工作台「MCP」里复制口令"}},
+                                      ensure_ascii=False).encode(), extra={"WWW-Authenticate": 'Bearer realm="h3-workbench"'})
+            return
+        n = int(self.headers.get("Content-Length") or 0)
+        if n > 4 << 20:
+            return self.json({"jsonrpc": "2.0", "error": {"code": -32600, "message": "请求太大"}}, 413)
+        try:
+            m = json.loads(self.rfile.read(n) or b"null")
+        except ValueError:
+            return self.json({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "不是 JSON"}}, 400)
+        if not isinstance(m, dict):
+            return self.json({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "一次只能发一条 JSON-RPC 消息"}}, 400)
+        hv = self.headers.get("MCP-Protocol-Version")
+        if hv and hv not in h3_mcp.MODERN + h3_mcp.LEGACY:
+            return self.json(h3_mcp._err(m.get("id"), h3_mcp.ERR_VERSION, "Unsupported protocol version",
+                                         {"supported": list(h3_mcp.MODERN + h3_mcp.LEGACY), "requested": hv}), 400)
+        p = m.get("params") if isinstance(m.get("params"), dict) else {}
+        mv = (p.get("_meta") or {}).get(h3_mcp.META_V) if isinstance(p.get("_meta"), dict) else None
+        if mv is not None and m.get("id") is not None:  # 新式：头要和正文对得上（2026-07-28 规定）
+            bad = None
+            if hv != mv:
+                bad = "MCP-Protocol-Version 头和 _meta 里的版本对不上"
+            elif self.headers.get("Mcp-Method") != m.get("method"):
+                bad = "Mcp-Method 头和 method 对不上"
+            elif m.get("method") in ("tools/call", "prompts/get", "resources/read") and \
+                    _b64_header(self.headers.get("Mcp-Name", "")) != (p.get("name") or p.get("uri")):
+                bad = "Mcp-Name 头和工具名对不上"
+            if bad:
+                return self.json(h3_mcp._err(m.get("id"), -32020, "Header mismatch: " + bad), 400)
+        r = h3_mcp.handle(m, "http")
+        if r is None:
+            self.send(202, b"", "text/plain")
+            return
+        code = 200
+        if "error" in r and mv is not None:
+            code = {h3_mcp.ERR_VERSION: 400, h3_mcp.ERR_METHOD: 404}.get(r["error"]["code"], 200)
+        elif "error" in r and r["error"]["code"] == h3_mcp.ERR_VERSION:
+            code = 400
+        self.json(r, code)
 
     def send(self, code, body=b"", ctype="application/json; charset=utf-8", extra=None):
         self.send_response(code)
@@ -689,11 +946,20 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         try:
             if u.path in ("/", "/index.html"):
-                return self.send(200, (WEB / "index.html").read_bytes(), "text/html; charset=utf-8")
+                html = (WEB / "index.html").read_bytes().replace(
+                    b'<meta charset="utf-8">', f'<meta charset="utf-8">\n<meta name="h3-page" content="{PAGE_TOKEN}">'.encode(), 1)
+                return self.send(200, html, "text/html; charset=utf-8")
+            if u.path == "/mcp":  # 网址接口只收 POST（2026-07-28 起没有 GET 推送流）
+                return self.send(405, b"", "text/plain", extra={"Allow": "POST"})
+            if u.path == "/api/mcp" and MCP:
+                if self.reject_no_page():
+                    return
+                return self.json(mcp_info())
             if u.path == "/api/state":
                 s = load_json(SETTINGS_FILE, {})
                 return self.json({"有RH密钥": rh.has_key(), "密钥存放": rh.key_place(), "演示": MOCK,
-                                  "输出目录": s.get("输出目录", posix(DEFAULT_OUT)), "系统": "win" if WIN else "mac" if MAC else "other", "版本": VERSION, "MCP": MCP})
+                                  "输出目录": s.get("输出目录", posix(DEFAULT_OUT)), "系统": "win" if WIN else "mac" if MAC else "other", "版本": VERSION, "MCP": MCP,
+                                  "MCP自动提交": bool(MCP and s.get("MCP自动提交")), "MCP网址接口": bool(MCP and s.get("MCP网址接口"))})
             if u.path == "/api/snippets":
                 return self.json(load_json(SNIPPETS_FILE, []))
             if u.path == "/api/handoff" and MCP:
@@ -732,7 +998,22 @@ class Handler(BaseHTTPRequestHandler):
         if self.reject_foreign():
             return
         u = urlparse(self.path)
+        if u.path == "/mcp":
+            try:
+                return self.mcp_http()
+            except Exception as e:
+                return self.json({"jsonrpc": "2.0", "id": None, "error": {"code": -32603, "message": f"出错了：{e}"}}, 500)
         try:
+            if u.path.startswith("/api/mcp/") and MCP:  # 网页「MCP」面板：只认工作台自己的网页
+                if self.reject_no_page():
+                    return
+                if u.path == "/api/mcp/settings":
+                    return self.json(mcp_settings(self.body()))
+                if u.path == "/api/mcp/claude":
+                    return self.json(write_claude_config(self.body().get("指纹")))
+                if u.path == "/api/mcp/token":
+                    mcp_token(reset=True)
+                    return self.json(mcp_info())
             if u.path == "/api/assets":
                 name = unquote(self.headers.get("X-Name", "file"))
                 n = int(self.headers.get("Content-Length") or 0)
